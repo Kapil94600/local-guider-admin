@@ -1,42 +1,125 @@
 // src/redux/slices/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { sendOtp, verifyOtp } from '../../api/auth';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from '../../config/firebase';
+import apiClient from '../../api/axios';
+
+// Module-level (non-serializable Firebase objects)
+let _confirmationResult = null;
+let _recaptchaVerifier = null;
 
 // ═══════════════════════════════════════════
-// Send OTP — Backend (MSG91/Twilio)
+// Send OTP — Firebase Phone Auth
 // ═══════════════════════════════════════════
 export const sendOtpThunk = createAsyncThunk(
   'auth/sendOtp',
   async (phone, { rejectWithValue }) => {
     try {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      console.log('🔵 Sending OTP — Phone:', formattedPhone);
+      console.log('📱 Firebase OTP to:', formattedPhone);
 
-      const res = await sendOtp(formattedPhone);
-      console.log('✅ OTP sent via backend:', res.data);
+      // ─────────────────────────────────────
+      // Cleanup old reCAPTCHA
+      // ─────────────────────────────────────
+      if (_recaptchaVerifier) {
+        try {
+          _recaptchaVerifier.clear();
+          console.log('🧹 Old verifier cleared');
+        } catch (e) {}
+        _recaptchaVerifier = null;
+      }
 
+      // Container recreate karo
+      const oldContainer = document.getElementById('recaptcha-container');
+      if (oldContainer) {
+        const parent = oldContainer.parentNode;
+        const newContainer = document.createElement('div');
+        newContainer.id = 'recaptcha-container';
+        parent.replaceChild(newContainer, oldContainer);
+        console.log('🧹 Container recreated');
+      }
+
+      // DOM settle hone do
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // ─────────────────────────────────────
+      // Visible reCAPTCHA (checkbox)
+      // ─────────────────────────────────────
+      _recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'normal',
+        callback: () => {
+          console.log('✅ reCAPTCHA solved by user');
+        },
+        'expired-callback': () => {
+          console.log('⚠️ reCAPTCHA expired');
+          if (_recaptchaVerifier) {
+            try {
+              _recaptchaVerifier.clear();
+            } catch (e) {}
+            _recaptchaVerifier = null;
+          }
+        },
+      });
+
+      await _recaptchaVerifier.render();
+      console.log('🎨 reCAPTCHA rendered');
+
+      // ─────────────────────────────────────
+      // Send OTP
+      // ─────────────────────────────────────
+      _confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        _recaptchaVerifier
+      );
+
+      console.log('✅ Firebase OTP sent');
       return { phone: formattedPhone };
     } catch (error) {
       console.error('❌ Send OTP error:', error);
-      return rejectWithValue(
-        error.response?.data?.message || 'Failed to send OTP'
-      );
+
+      // Cleanup on error
+      if (_recaptchaVerifier) {
+        try {
+          _recaptchaVerifier.clear();
+        } catch (e) {}
+        _recaptchaVerifier = null;
+      }
+
+      let msg = error.message || 'Failed to send OTP';
+      if (error.code === 'auth/invalid-app-credential') {
+        msg = 'reCAPTCHA verification failed. Refresh page and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        msg = 'Too many attempts. Please wait 1 hour and try again.';
+      } else if (error.code === 'auth/captcha-check-failed') {
+        msg = 'reCAPTCHA failed. Please refresh page and try again.';
+      } else if (error.code === 'auth/invalid-phone-number') {
+        msg = 'Invalid phone number format.';
+      }
+
+      return rejectWithValue(msg);
     }
   }
 );
 
 // ═══════════════════════════════════════════
-// Verify OTP — Backend
+// Verify OTP — Firebase + Backend
 // ═══════════════════════════════════════════
 export const verifyOtpThunk = createAsyncThunk(
   'auth/verifyOtp',
   async ({ phone, otp }, { rejectWithValue }) => {
     try {
-      // ⚡ Phone format `+91` prefix ke saath — same as sendOtpThunk
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      console.log('🔵 Verify OTP — Phone:', formattedPhone, 'OTP:', otp);
+      if (!_confirmationResult) {
+        throw new Error('Please request OTP first');
+      }
 
-      const res = await verifyOtp(formattedPhone, otp);
+      // Firebase se OTP confirm karo
+      const result = await _confirmationResult.confirm(otp);
+      const idToken = await result.user.getIdToken();
+      console.log('✅ Firebase ID Token received');
+
+      // Backend ko bhejo
+      const res = await apiClient.post('/auth/firebase-login', { idToken });
       const data = res.data;
 
       const accessToken = data.data?.accessToken || data.accessToken;
@@ -47,23 +130,41 @@ export const verifyOtpThunk = createAsyncThunk(
         throw new Error('Missing accessToken or user');
       }
 
-      // ✅ Admin role check
+      // Admin role check
       const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
       if (!allowedRoles.includes(user.role)) {
         throw new Error('Access denied. Admin only.');
       }
 
+      // Tokens save karo
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
 
-      console.log('✅ Admin login successful:', user.id, 'Role:', user.role);
+      // Cleanup
+      _confirmationResult = null;
+      if (_recaptchaVerifier) {
+        try {
+          _recaptchaVerifier.clear();
+        } catch (e) {}
+        _recaptchaVerifier = null;
+      }
+
+      console.log('✅ Admin login successful:', user.id);
       return { user, accessToken, refreshToken };
     } catch (error) {
       console.error('❌ Verify OTP error:', error);
-      return rejectWithValue(
-        error.response?.data?.message || error.message || 'Invalid OTP'
-      );
+
+      let msg = error.message || 'Invalid OTP';
+      if (error.code === 'auth/invalid-verification-code') {
+        msg = 'Invalid OTP. Please check and try again.';
+      } else if (error.code === 'auth/code-expired') {
+        msg = 'OTP expired. Please request a new one.';
+      } else if (error.response?.data?.message) {
+        msg = error.response.data.message;
+      }
+
+      return rejectWithValue(msg);
     }
   }
 );
@@ -92,6 +193,13 @@ const authSlice = createSlice({
       state.otpSent = false;
       state.phone = '';
       state.error = null;
+      _confirmationResult = null;
+      if (_recaptchaVerifier) {
+        try {
+          _recaptchaVerifier.clear();
+        } catch (e) {}
+        _recaptchaVerifier = null;
+      }
     },
     logout: (state) => {
       state.user = null;

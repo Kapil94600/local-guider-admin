@@ -54,7 +54,6 @@ const Login = () => {
       return;
     }
 
-    // ⚡ Format phone same as sendOtp
     const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
 
     const result = await dispatch(
@@ -63,7 +62,6 @@ const Login = () => {
 
     if (verifyOtpThunk.fulfilled.match(result)) {
       toast.success('Login successful');
-      // redirect via useEffect
     } else {
       toast.error(result.payload || 'Verification failed');
     }
@@ -182,6 +180,17 @@ const Login = () => {
                 </button>
               </form>
             )}
+
+            {/* ⚡⚡ reCAPTCHA container — YE ZAROORI HAI ⚡⚡ */}
+            <div
+              id="recaptcha-container"
+              style={{
+                marginTop: '15px',
+                minHeight: '80px',
+                display: 'flex',
+                justifyContent: 'center',
+              }}
+            ></div>
           </div>
         </div>
       </div>
