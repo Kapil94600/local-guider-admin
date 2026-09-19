@@ -1,21 +1,53 @@
-// src/pages/Offers.js
+// src/pages/Offers.jsx
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import {
   Box, Paper, Typography, TextField, Button, IconButton, Chip, Switch,
-  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Grid, Stack,
-  useMediaQuery, useTheme, Card, CardContent, Tooltip, InputAdornment,
-  FormControl, InputLabel, Select, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
+  Stack, useMediaQuery, useTheme, Tooltip, InputAdornment,
+  FormControl, InputLabel, Select, MenuItem, Divider,
 } from '@mui/material';
-import { Search, CloudUpload, Close } from '@mui/icons-material';
-import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
-import { fetchOffers, createOffer, updateOffer, deleteOffer, setPage, setLimit } from '../redux/slices/offerSlice';
+import {
+  Search, CloudUpload, Close, Refresh,
+  LocalOffer as OfferIcon, Inbox,
+} from '@mui/icons-material';
+import {
+  DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport,
+} from '@mui/x-data-grid';
+import {
+  fetchOffers, createOffer, updateOffer, deleteOffer, setPage, setLimit,
+} from '../redux/slices/offerSlice';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
-import { COLORS, FONT_DISPLAY } from '../theme/dashboardTheme';
 import apiClient from '../api/axios';
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  bgRowHover: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  violetSoft: '#ede9fe',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
+};
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -24,10 +56,23 @@ const CustomToolbar = () => (
   </GridToolbarContainer>
 );
 
-// ---------- OfferModal with Image Upload ----------
+const inputSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2,
+    bgcolor: T.surfaceSoft,
+    '& fieldset': { borderColor: T.border },
+    '&:hover fieldset': { borderColor: '#c7d2fe' },
+    '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// OFFER MODAL
+// ═══════════════════════════════════════════════════════════════
 const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
   const [formData, setFormData] = useState({
-    title: '', description: '', image: '', discountPercentage: 0, startDate: '', endDate: '', isActive: true,
+    title: '', description: '', image: '',
+    discountPercentage: 0, startDate: '', endDate: '', isActive: true,
   });
   const [uploading, setUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
@@ -45,9 +90,10 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
         const minutes = String(d.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day}T${hours}:${minutes}`;
       };
-
       setFormData({
-        title: offer.title || '', description: offer.description || '', image: offer.image || '',
+        title: offer.title || '',
+        description: offer.description || '',
+        image: offer.image || '',
         discountPercentage: offer.discountPercentage || 0,
         startDate: formatDateForInput(offer.startDate),
         endDate: formatDateForInput(offer.endDate),
@@ -55,14 +101,17 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
       });
       setPreviewImage(offer.image || '');
     } else {
-      setFormData({ title: '', description: '', image: '', discountPercentage: 0, startDate: '', endDate: '', isActive: true });
+      setFormData({
+        title: '', description: '', image: '',
+        discountPercentage: 0, startDate: '', endDate: '', isActive: true,
+      });
       setPreviewImage('');
     }
   }, [offer, open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileUpload = async (event) => {
@@ -72,18 +121,16 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
       toast.error('Please select an image file');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('image', file);
-
+    const fd = new FormData();
+    fd.append('image', file);
     try {
       setUploading(true);
-      const response = await apiClient.post('/uploads', formData, {
+      const response = await apiClient.post('/uploads', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const imageUrl = response.data.url;
       setPreviewImage(imageUrl);
-      setFormData(prev => ({ ...prev, image: imageUrl }));
+      setFormData((prev) => ({ ...prev, image: imageUrl }));
       toast.success('Image uploaded');
     } catch (error) {
       console.error('Upload error:', error);
@@ -96,7 +143,7 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
 
   const handleRemoveImage = () => {
     setPreviewImage('');
-    setFormData(prev => ({ ...prev, image: '' }));
+    setFormData((prev) => ({ ...prev, image: '' }));
   };
 
   const handleSubmit = () => {
@@ -104,13 +151,11 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
       toast.error('Title is required');
       return;
     }
-
     const toISOOrNull = (value) => {
       if (!value) return null;
       const d = new Date(value);
       return isNaN(d.getTime()) ? null : d.toISOString();
     };
-
     const payload = {
       ...formData,
       startDate: toISOOrNull(formData.startDate),
@@ -121,81 +166,240 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontFamily: FONT_DISPLAY, fontWeight: 700, borderBottom: '1px solid #E2E8F0' }}>
-        {offer ? '✏️ Edit Offer' : '➕ Create New Offer'}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: T.radius } } }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: T.fontDisplay, fontWeight: 700,
+          fontSize: '1.05rem', color: T.textPrimary,
+          borderBottom: `1px solid ${T.border}`,
+          display: 'flex', alignItems: 'center', gap: 1,
+        }}
+      >
+        <Box
+          sx={{
+            width: 32, height: 32, borderRadius: 1.5,
+            bgcolor: T.indigoSoft, color: T.indigo,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <OfferIcon sx={{ fontSize: 18 }} />
+        </Box>
+        {offer ? 'Edit Offer' : 'Create New Offer'}
       </DialogTitle>
-      <DialogContent dividers sx={{ p: 3 }}>
-        <Grid container spacing={2.5}>
-          <Grid item xs={12}>
-            <TextField fullWidth label="Offer Title" name="title" value={formData.title} onChange={handleChange} required />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField fullWidth label="Description" multiline rows={2} name="description" value={formData.description} onChange={handleChange} />
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" gutterBottom>Offer Image</Typography>
-            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-              <Button component="label" variant="outlined" startIcon={<CloudUpload />} disabled={uploading} sx={{ mb: 1 }}>
+      <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
+        <Stack spacing={2.5}>
+          <TextField
+            fullWidth
+            label="Offer Title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            required
+            sx={inputSx}
+          />
+          <TextField
+            fullWidth
+            label="Description"
+            multiline
+            rows={2}
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            sx={inputSx}
+          />
+
+          {/* Image Upload */}
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.7rem', fontWeight: 700,
+                color: T.textFaint, letterSpacing: '0.06em',
+                textTransform: 'uppercase', mb: 1,
+              }}
+            >
+              Offer Image
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1.5 }}>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUpload />}
+                disabled={uploading}
+                sx={{
+                  textTransform: 'none', fontWeight: 700,
+                  fontSize: '0.78rem', borderRadius: 2,
+                  borderColor: T.border, color: T.textPrimary,
+                  bgcolor: T.surface, px: 2,
+                  '&:hover': { borderColor: T.indigo, bgcolor: T.indigoSoft },
+                }}
+              >
                 Upload Image
-                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
               </Button>
-              {uploading && <CircularProgress size={24} sx={{ mb: 1 }} />}
+              {uploading && <CircularProgress size={20} sx={{ color: T.indigo }} />}
               {previewImage && (
-                <Box sx={{ position: 'relative', width: 80, height: 80, borderRadius: 2, overflow: 'hidden', mb: 1 }}>
-                  <img src={previewImage} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <IconButton size="small" sx={{ position: 'absolute', top: 0, right: 0, bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} onClick={handleRemoveImage}>
-                    <Close fontSize="small" sx={{ color: '#fff' }} />
+                <Box
+                  sx={{
+                    position: 'relative', width: 80, height: 80,
+                    borderRadius: 2, overflow: 'hidden',
+                    border: `1px solid ${T.border}`,
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={previewImage}
+                    alt="preview"
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={handleRemoveImage}
+                    sx={{
+                      position: 'absolute', top: 2, right: 2,
+                      width: 24, height: 24,
+                      bgcolor: 'rgba(11,18,32,0.7)', color: '#fff',
+                      '&:hover': { bgcolor: 'rgba(11,18,32,0.9)' },
+                    }}
+                  >
+                    <Close sx={{ fontSize: 14 }} />
                   </IconButton>
                 </Box>
               )}
             </Stack>
-            <TextField fullWidth label="Image URL (auto-filled)" value={formData.image} onChange={handleChange} name="image" sx={{ mt: 1 }} InputProps={{ readOnly: true }} variant="outlined" size="small" />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField fullWidth type="number" label="Discount (%)" name="discountPercentage" value={formData.discountPercentage} onChange={handleChange} InputProps={{ inputProps: { min: 0, max: 100 } }} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField fullWidth label="Start Date" type="datetime-local" name="startDate" value={formData.startDate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField fullWidth label="End Date" type="datetime-local" name="endDate" value={formData.endDate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={6}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="body2">Active</Typography>
-              <Switch checked={formData.isActive} onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))} />
-            </Stack>
-          </Grid>
-        </Grid>
+            <TextField
+              fullWidth
+              label="Image URL"
+              value={formData.image}
+              name="image"
+              sx={{ mt: 1.5, ...inputSx }}
+              slotProps={{ input: { readOnly: true } }}
+              size="small"
+            />
+          </Box>
+
+          <TextField
+            fullWidth
+            type="number"
+            label="Discount (%)"
+            name="discountPercentage"
+            value={formData.discountPercentage}
+            onChange={handleChange}
+            slotProps={{ htmlInput: { min: 0, max: 100 } }}
+            sx={inputSx}
+          />
+
+          <Stack direction="row" spacing={2}>
+            <TextField
+              fullWidth
+              label="Start Date"
+              type="datetime-local"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={inputSx}
+            />
+            <TextField
+              fullWidth
+              label="End Date"
+              type="datetime-local"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={inputSx}
+            />
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}>
+              Active
+            </Typography>
+            <Switch
+              checked={formData.isActive}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, isActive: e.target.checked }))
+              }
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': { color: T.emerald },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  bgcolor: T.emerald,
+                },
+              }}
+            />
+          </Stack>
+        </Stack>
       </DialogContent>
-      <DialogActions sx={{ padding: 2, borderTop: '1px solid #E2E8F0' }}>
-        <Button onClick={onClose} color="inherit">Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={saving}
-          sx={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }, px: 4 }}>
-          {saving ? <CircularProgress size={20} /> : 'Save Offer'}
+      <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}`, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={saving}
+          sx={{
+            textTransform: 'none', fontWeight: 700,
+            borderRadius: 2, bgcolor: T.indigo,
+            px: 3, boxShadow: 'none',
+            '&:hover': { bgcolor: '#4f46e5' },
+          }}
+        >
+          {saving ? (
+            <CircularProgress size={16} sx={{ color: '#fff' }} />
+          ) : (
+            'Save Offer'
+          )}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-// ---------- Main Offers Component ----------
+// ═══════════════════════════════════════════════════════════════
+// OFFERS
+// ═══════════════════════════════════════════════════════════════
 const Offers = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { items, total, loading, pagination } = useSelector((state) => state.offers);
+  const { items, loading, pagination } = useSelector((s) => s.offers);
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');  // ✅ NEW
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [editOffer, setEditOffer] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // ✅ Fetch with status filter
+  const fetchList = () => {
+    dispatch(
+      fetchOffers({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      })
+    );
+  };
+
   useEffect(() => {
-    dispatch(fetchOffers({ page: pagination.page, limit: pagination.limit, search: searchTerm, status: statusFilter !== 'ALL' ? statusFilter : undefined }));
+    fetchList();
   }, [dispatch, pagination.page, pagination.limit, searchTerm, statusFilter]);
 
   const handleSave = async (data) => {
@@ -209,7 +413,7 @@ const Offers = () => {
         toast.success('Offer created');
       }
       setModalOpen(false);
-      dispatch(fetchOffers({ page: pagination.page, limit: pagination.limit }));
+      fetchList();
     } catch (error) {
       toast.error(error.message || 'Failed to save offer');
     } finally {
@@ -218,98 +422,380 @@ const Offers = () => {
   };
 
   const handleDelete = async (id) => {
+    setDeleting(true);
     try {
       await dispatch(deleteOffer(id)).unwrap();
       toast.success('Offer deleted');
       setDeleteConfirm(null);
+      fetchList();
     } catch {
       toast.error('Delete failed');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const columns = [
-    { field: 'image', headerName: 'Image', flex: 0.6, minWidth: 100, renderCell: (params) => (
-      <img src={params.row.image || 'https://via.placeholder.com/80'} alt="offer" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
-    ) },
-    { field: 'title', headerName: 'Title', flex: 1.5, minWidth: 150, renderCell: (params) => <Typography fontWeight={600}>{params.row.title}</Typography> },
-    { field: 'description', headerName: 'Description', flex: 2, minWidth: 200 },
-    { field: 'discountPercentage', headerName: 'Discount', flex: 0.5, minWidth: 80, renderCell: (params) => <Chip label={`${params.row.discountPercentage}%`} color="success" size="small" /> },
-    { field: 'startDate', headerName: 'Start', flex: 0.7, minWidth: 100, renderCell: (params) => { if (!params.row.startDate) return <Typography variant="caption" color="textSecondary">N/A</Typography>; return new Date(params.row.startDate).toLocaleDateString(); } },
-    { field: 'endDate', headerName: 'End', flex: 0.7, minWidth: 100, renderCell: (params) => { if (!params.row.endDate) return <Typography variant="caption" color="textSecondary">N/A</Typography>; return new Date(params.row.endDate).toLocaleDateString(); } },
-    { field: 'isActive', headerName: 'Active', flex: 0.5, minWidth: 80, renderCell: (params) => <Chip label={params.row.isActive ? 'Yes' : 'No'} size="small" color={params.row.isActive ? 'success' : 'default'} /> },
-    { field: 'actions', headerName: 'Actions', flex: 0.8, minWidth: 120, renderCell: (params) => (
-      <Stack direction="row" spacing={0.5}>
-        <Tooltip title="Edit">
-          <IconButton onClick={() => { setEditOffer(params.row); setModalOpen(true); }} sx={{ color: COLORS.sky }}><FaEdit /></IconButton>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <IconButton onClick={() => setDeleteConfirm(params.row.id)} sx={{ color: COLORS.rose }}><FaTrash /></IconButton>
-        </Tooltip>
-      </Stack>
-    ) },
+    {
+      field: 'image',
+      headerName: 'Image',
+      flex: 0.5,
+      minWidth: 90,
+      sortable: false,
+      renderCell: (params) => (
+        <Box
+          component="img"
+          src={params.row.image || 'https://via.placeholder.com/80'}
+          alt="offer"
+          sx={{
+            width: 56, height: 44,
+            borderRadius: 1.5, objectFit: 'cover',
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surfaceSoft,
+          }}
+        />
+      ),
+    },
+    {
+      field: 'title',
+      headerName: 'Title',
+      flex: 1.4,
+      minWidth: 160,
+      renderCell: (params) => (
+        <Typography
+          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          noWrap
+        >
+          {params.row.title}
+        </Typography>
+      ),
+    },
+    {
+      field: 'description',
+      headerName: 'Description',
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+          {params.row.description || '—'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'discountPercentage',
+      headerName: 'Discount',
+      flex: 0.5,
+      minWidth: 90,
+      renderCell: (params) => (
+        <Chip
+          label={`${params.row.discountPercentage || 0}%`}
+          size="small"
+          sx={{
+            bgcolor: T.emeraldSoft, color: '#047857',
+            fontWeight: 700, fontSize: '0.65rem',
+            height: 22, borderRadius: 999,
+          }}
+        />
+      ),
+    },
+    {
+      field: 'startDate',
+      headerName: 'Start',
+      flex: 0.7,
+      minWidth: 110,
+      renderCell: (params) =>
+        params.row.startDate ? (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
+            {new Date(params.row.startDate).toLocaleDateString('en-IN', {
+              day: '2-digit', month: 'short', year: 'numeric',
+            })}
+          </Typography>
+        ) : (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>N/A</Typography>
+        ),
+    },
+    {
+      field: 'endDate',
+      headerName: 'End',
+      flex: 0.7,
+      minWidth: 110,
+      renderCell: (params) =>
+        params.row.endDate ? (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
+            {new Date(params.row.endDate).toLocaleDateString('en-IN', {
+              day: '2-digit', month: 'short', year: 'numeric',
+            })}
+          </Typography>
+        ) : (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>N/A</Typography>
+        ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'Status',
+      flex: 0.5,
+      minWidth: 90,
+      renderCell: (params) => (
+        <Chip
+          label={params.row.isActive ? 'Active' : 'Inactive'}
+          size="small"
+          sx={{
+            bgcolor: params.row.isActive ? T.emeraldSoft : '#f1f5f9',
+            color: params.row.isActive ? '#059669' : '#64748b',
+            fontWeight: 700, fontSize: '0.65rem',
+            height: 22, borderRadius: 999,
+          }}
+        />
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 0.7,
+      minWidth: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Tooltip title="Edit offer">
+            <IconButton
+              size="small"
+              onClick={() => {
+                setEditOffer(params.row);
+                setModalOpen(true);
+              }}
+              sx={{
+                bgcolor: T.indigoSoft, color: T.indigo,
+                '&:hover': { bgcolor: '#e0e7ff' },
+                width: 32, height: 32,
+              }}
+            >
+              <FaEdit size={13} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete offer">
+            <IconButton
+              size="small"
+              onClick={() => setDeleteConfirm(params.row.id)}
+              sx={{
+                bgcolor: T.roseSoft, color: T.rose,
+                '&:hover': { bgcolor: '#fecaca' },
+                width: 32, height: 32,
+              }}
+            >
+              <FaTrash size={13} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
   ];
 
   const renderMobileCards = () => (
     <Stack spacing={2}>
-      {items?.length > 0 ? items.map((offer) => (
-        <Card key={offer.id} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-              <img src={offer.image || 'https://via.placeholder.com/80'} alt="offer" style={{ width: 80, height: 60, borderRadius: 8, objectFit: 'cover' }} />
+      {items?.length > 0 ? (
+        items.map((offer) => (
+          <Paper
+            key={offer.id}
+            elevation={0}
+            sx={{
+              borderRadius: T.radius,
+              border: `1px solid ${T.border}`,
+              bgcolor: T.surface,
+              p: 2,
+              '&:hover': {
+                boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                borderColor: T.borderStrong,
+              },
+            }}
+          >
+            <Stack direction="row" spacing={1.5} sx={{ mb: 1.5 }}>
+              <Box
+                component="img"
+                src={offer.image || 'https://via.placeholder.com/100x60'}
+                alt="offer"
+                sx={{
+                  width: 100, height: 60,
+                  borderRadius: 2, objectFit: 'cover',
+                  border: `1px solid ${T.border}`,
+                  flexShrink: 0,
+                }}
+              />
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} noWrap>{offer.title}</Typography>
-                <Typography variant="caption" color="textSecondary" noWrap>{offer.description || 'No description'}</Typography>
+                <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }} noWrap>
+                  {offer.title}
+                </Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.3 }} noWrap>
+                  {offer.description || 'No description'}
+                </Typography>
               </Box>
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            </Stack>
+
+            <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
               <Box>
-                <Typography variant="caption" color="textSecondary">Discount</Typography>
-                <Typography variant="body2" fontWeight={500}>{offer.discountPercentage}%</Typography>
+                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Discount
+                </Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, mt: 0.2 }}>
+                  {offer.discountPercentage || 0}%
+                </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="textSecondary">Active</Typography>
-                <Chip label={offer.isActive ? 'Yes' : 'No'} size="small" color={offer.isActive ? 'success' : 'default'} />
+                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Start
+                </Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                  {offer.startDate ? new Date(offer.startDate).toLocaleDateString('en-IN') : 'N/A'}
+                </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="textSecondary">Start</Typography>
-                <Typography variant="body2" fontWeight={500}>{offer.startDate ? new Date(offer.startDate).toLocaleDateString() : 'N/A'}</Typography>
+                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  End
+                </Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                  {offer.endDate ? new Date(offer.endDate).toLocaleDateString('en-IN') : 'N/A'}
+                </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="textSecondary">End</Typography>
-                <Typography variant="body2" fontWeight={500}>{offer.endDate ? new Date(offer.endDate).toLocaleDateString() : 'N/A'}</Typography>
+                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Status
+                </Typography>
+                <Chip
+                  label={offer.isActive ? 'Active' : 'Inactive'}
+                  size="small"
+                  sx={{
+                    mt: 0.2,
+                    bgcolor: offer.isActive ? T.emeraldSoft : '#f1f5f9',
+                    color: offer.isActive ? '#059669' : '#64748b',
+                    fontWeight: 700, fontSize: '0.6rem',
+                    height: 20, borderRadius: 999,
+                  }}
+                />
               </Box>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5, borderTop: '1px solid #f1f5f9', pt: 1 }}>
-              <IconButton size="small" onClick={() => { setEditOffer(offer); setModalOpen(true); }} sx={{ color: COLORS.sky }}><FaEdit fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={() => setDeleteConfirm(offer.id)} sx={{ color: COLORS.rose }}><FaTrash fontSize="small" /></IconButton>
-            </Box>
-          </CardContent>
-        </Card>
-      )) : (
-        <Typography align="center" color="textSecondary" sx={{ py: 4 }}>No offers found</Typography>
+            </Stack>
+
+            <Stack
+              direction="row"
+              justifyContent="flex-end"
+              spacing={0.5}
+              sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
+            >
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setEditOffer(offer);
+                  setModalOpen(true);
+                }}
+                sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
+              >
+                <FaEdit size={12} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => setDeleteConfirm(offer.id)}
+                sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
+              >
+                <FaTrash size={12} />
+              </IconButton>
+            </Stack>
+          </Paper>
+        ))
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4, borderRadius: T.radius,
+            border: `1px dashed ${T.border}`, textAlign: 'center',
+          }}
+        >
+          <OfferIcon sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
+          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
+            No offers found
+          </Typography>
+        </Paper>
       )}
     </Stack>
   );
 
   return (
-    <Box className="fade-in" sx={{ p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
-      <PanelHeader eyebrow="Promotions" title="Offers Management" />
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="Promotions" title="Offers Management" />
+      </Box>
 
-      {/* ✅ Search + Status Filter */}
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
-          <TextField fullWidth placeholder="Search offers..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="small"
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2, borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface, mb: 2.5,
+        }}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search offers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2, bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
+                '&:hover fieldset': { borderColor: '#c7d2fe' },
+                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+              },
+            }}
+          />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Status</InputLabel>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Status"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
               <MenuItem value="ALL">All Status</MenuItem>
               <MenuItem value="true">Active</MenuItem>
               <MenuItem value="false">Inactive</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="contained" startIcon={<FaPlus />} onClick={() => { setEditOffer(null); setModalOpen(true); }}
-            sx={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }, px: 3, whiteSpace: 'nowrap' }}>
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={fetchList}
+              sx={{
+                bgcolor: T.indigoSoft, color: T.indigo,
+                width: 40, height: 40,
+                '&:hover': { bgcolor: '#e0e7ff' },
+              }}
+            >
+              <Refresh sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<FaPlus size={12} />}
+            onClick={() => {
+              setEditOffer(null);
+              setModalOpen(true);
+            }}
+            sx={{
+              textTransform: 'none', fontWeight: 700,
+              fontSize: '0.78rem', borderRadius: 2,
+              bgcolor: T.indigo, px: 2.5, py: 1,
+              boxShadow: 'none', whiteSpace: 'nowrap',
+              '&:hover': { bgcolor: '#4f46e5' },
+            }}
+          >
             Create Offer
           </Button>
         </Stack>
@@ -318,22 +804,122 @@ const Offers = () => {
       {isMobile ? (
         loading ? <Loader /> : renderMobileCards()
       ) : (
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
-          {loading ? <Loader /> : (
-            <DataGrid rows={items} columns={columns} pageSize={pagination.limit} rowsPerPageOptions={[5, 10, 25]}
-              page={pagination.page - 1} onPageChange={(p) => dispatch(setPage(p + 1))} onPageSizeChange={(s) => dispatch(setLimit(s))}
-              components={{ Toolbar: CustomToolbar }} disableSelectionOnClick autoHeight
-              sx={{ '& .MuiDataGrid-columnHeaders': { bgcolor: '#F8FAFC', fontWeight: 700, color: '#475569' }, '& .MuiDataGrid-row:hover': { bgcolor: '#F0F4FF' }, '& .MuiDataGrid-cell': { borderBottom: '1px solid #F1F5F9', padding: '8px' }, '& .MuiDataGrid-columnSeparator': { display: 'none' } }} />
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1, borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface, overflow: 'hidden',
+          }}
+        >
+          {loading ? (
+            <Loader />
+          ) : (
+            <DataGrid
+              rows={items}
+              columns={columns}
+              pageSize={pagination.limit}
+              rowsPerPageOptions={[5, 10, 25]}
+              page={pagination.page - 1}
+              onPageChange={(p) => dispatch(setPage(p + 1))}
+              onPageSizeChange={(s) => dispatch(setLimit(s))}
+              components={{ Toolbar: CustomToolbar }}
+              disableSelectionOnClick
+              autoHeight
+              rowHeight={64}
+              sx={{
+                border: 'none',
+                '& .MuiDataGrid-columnHeaders': {
+                  bgcolor: T.surfaceSoft, fontWeight: 700,
+                  color: T.textMuted, fontSize: '0.72rem',
+                  letterSpacing: '0.05em', textTransform: 'uppercase',
+                  borderBottom: `1px solid ${T.border}`,
+                  minHeight: '48px !important',
+                },
+                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
+                '& .MuiDataGrid-row': {
+                  borderBottom: `1px solid ${T.border}`,
+                  transition: 'background-color 0.15s ease',
+                },
+                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
+                '& .MuiDataGrid-cell': {
+                  borderBottom: 'none',
+                  display: 'flex', alignItems: 'center', py: 0,
+                },
+                '& .MuiDataGrid-cell:focus': { outline: 'none' },
+                '& .MuiDataGrid-columnSeparator': { display: 'none' },
+                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
+                '& .MuiDataGrid-toolbarContainer': {
+                  p: 1, borderBottom: `1px solid ${T.border}`,
+                },
+              }}
+            />
           )}
         </Paper>
       )}
 
-      <OfferModal open={modalOpen} onClose={() => setModalOpen(false)} offer={editOffer} onSave={handleSave} saving={saving} />
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
-        <DialogTitle>Delete Offer?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-          <Button onClick={() => handleDelete(deleteConfirm)} color="error" variant="contained">Delete</Button>
+      <OfferModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        offer={editOffer}
+        onSave={handleSave}
+        saving={saving}
+      />
+
+      {/* Delete Dialog */}
+      <Dialog
+        open={!!deleteConfirm}
+        onClose={() => !deleting && setDeleteConfirm(null)}
+        slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700, fontSize: '1.05rem', color: T.textPrimary,
+            display: 'flex', alignItems: 'center', gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 32, height: 32, borderRadius: 1.5,
+              bgcolor: T.roseSoft, color: T.rose,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <FaTrash size={14} />
+          </Box>
+          Delete Offer?
+        </DialogTitle>
+        <Divider sx={{ borderColor: T.border }} />
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+            This will permanently delete the offer. This action cannot be undone.
+          </Typography>
+        </Box>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteConfirm(null)}
+            disabled={deleting}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleDelete(deleteConfirm)}
+            disabled={deleting}
+            variant="contained"
+            sx={{
+              textTransform: 'none', fontWeight: 700,
+              borderRadius: 2, bgcolor: T.rose,
+              '&:hover': { bgcolor: '#e11d48' },
+              boxShadow: 'none',
+            }}
+          >
+            {deleting ? (
+              <CircularProgress size={16} sx={{ color: '#fff' }} />
+            ) : (
+              'Delete'
+            )}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

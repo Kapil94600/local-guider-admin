@@ -19,7 +19,7 @@ import {
 import {
   Box, Paper, Typography, Alert, Button, Skeleton, Chip,
   Stack, ToggleButton, ToggleButtonGroup, IconButton,
-  Tooltip as MuiTooltip, Avatar, Grid, LinearProgress,
+  Tooltip as MuiTooltip, Avatar, LinearProgress,
 } from '@mui/material';
 import PanelHeader from '../components/PanelHeader';
 
@@ -94,7 +94,7 @@ const Sparkline = ({ data, color, width = 60, height = 22 }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// HERO CARD — Left side, tall
+// HERO CARD
 // ═══════════════════════════════════════════════════════════════
 const HeroCard = ({ value, trend, trendValue, sparklineData }) => {
   const isUp = trend === 'up';
@@ -143,7 +143,6 @@ const HeroCard = ({ value, trend, trendValue, sparklineData }) => {
         },
       }}
     >
-      {/* Header */}
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -187,7 +186,6 @@ const HeroCard = ({ value, trend, trendValue, sparklineData }) => {
         </Stack>
       </Box>
 
-      {/* Big number — centered vertically */}
       <Box sx={{ position: 'relative', zIndex: 1, my: 2 }}>
         <Typography
           sx={{
@@ -212,7 +210,6 @@ const HeroCard = ({ value, trend, trendValue, sparklineData }) => {
         </Typography>
       </Box>
 
-      {/* Footer */}
       <Stack
         direction="row"
         alignItems="flex-end"
@@ -590,13 +587,25 @@ const Dashboard = () => {
     return (
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Skeleton variant="rounded" height={340} sx={{ borderRadius: 3, mb: 2.5 }} />
-        <Grid container spacing={2.5}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'repeat(2, 1fr)',
+              sm: 'repeat(4, 1fr)',
+            },
+            gap: 2.5,
+          }}
+        >
           {[1, 2, 3, 4].map((i) => (
-            <Grid item xs={12} sm={6} md={3} key={i}>
-              <Skeleton variant="rounded" height={148} sx={{ borderRadius: 3 }} />
-            </Grid>
+            <Skeleton
+              key={i}
+              variant="rounded"
+              height={148}
+              sx={{ borderRadius: 3 }}
+            />
           ))}
-        </Grid>
+        </Box>
       </Box>
     );
   }
@@ -607,7 +616,11 @@ const Dashboard = () => {
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Alert
           severity="error"
-          action={<Button color="inherit" onClick={handleRetry}>Retry</Button>}
+          action={
+            <Button color="inherit" onClick={handleRetry}>
+              Retry
+            </Button>
+          }
           sx={{ borderRadius: 2 }}
         >
           {error}
@@ -629,7 +642,6 @@ const Dashboard = () => {
       Math.max(2, Math.round((Math.sin(i + seed) + 1.2) * 40 + seed * 8))
     );
 
-  // 8 compact cards
   const compactStats = [
     { key: 'totalUsers', title: 'Total Users', icon: FaUsers, accent: T.sky, trend: 'up', trendValue: '+12%' },
     { key: 'totalGuiders', title: 'Guiders', icon: FaUserTie, accent: T.violet, trend: 'up', trendValue: '+4%' },
@@ -728,10 +740,7 @@ const Dashboard = () => {
         </Stack>
       </Stack>
 
-      {/* ═══════════════════════════════════════════════════════════
-          ROW 1 — Hero (left, tall) + 8 compact stats (right, 2×4)
-          Uses flexbox for desktop, stacks on mobile
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══════ ROW 1 — HERO + 8 COMPACT STATS (2×4 grid) ═══════ */}
       <Box
         sx={{
           display: 'flex',
@@ -741,7 +750,7 @@ const Dashboard = () => {
           alignItems: 'stretch',
         }}
       >
-        {/* HERO — 33.33% on desktop, full width on mobile */}
+        {/* HERO */}
         <Box
           sx={{
             width: { xs: '100%', md: 'calc(33.333% - 13px)' },
@@ -758,7 +767,7 @@ const Dashboard = () => {
           />
         </Box>
 
-        {/* RIGHT SIDE — 8 compact stats in 2 rows × 4 cols (or 2 cols on mobile) */}
+        {/* 8 compact stats — 2 rows × 4 cols */}
         <Box
           sx={{
             flex: 1,
@@ -786,10 +795,8 @@ const Dashboard = () => {
             />
           ))}
 
-          {/* 7th — Pending Requests */}
           <PendingCard value={d.pendingRoleRequests} />
 
-          {/* 8th — Total Revenue compact */}
           <CompactStatCard
             title="Total Revenue"
             value={`₹${Number(d.totalRevenue || 0).toLocaleString('en-IN')}`}
@@ -803,199 +810,256 @@ const Dashboard = () => {
       </Box>
 
       {/* ═══════ ROW 2 — User Growth + User Roles ═══════ */}
-      <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-        <Grid item xs={12} lg={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: T.radius,
-              border: `1px solid ${T.border}`,
-              bgcolor: T.surface,
-              height: '100%',
-            }}
-          >
-            <SectionHeader
-              title="User Growth"
-              subtitle="New sign-ups trend"
-              action={
-                <Chip
-                  label="Last 8 months"
-                  size="small"
-                  sx={{
-                    bgcolor: T.surfaceSoft,
-                    color: T.textMuted,
-                    border: `1px solid ${T.border}`,
-                    fontWeight: 600,
-                    fontSize: '0.68rem',
-                    height: 24,
-                    borderRadius: 999,
-                  }}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
+          gap: 2.5,
+          mb: 2.5,
+        }}
+      >
+        {/* User Growth */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            minHeight: 380,
+          }}
+        >
+          <SectionHeader
+            title="User Growth"
+            subtitle="New sign-ups trend"
+            action={
+              <Chip
+                label="Last 8 months"
+                size="small"
+                sx={{
+                  bgcolor: T.surfaceSoft,
+                  color: T.textMuted,
+                  border: `1px solid ${T.border}`,
+                  fontWeight: 600,
+                  fontSize: '0.68rem',
+                  height: 24,
+                  borderRadius: 999,
+                }}
+              />
+            }
+          />
+          <Box sx={{ width: '100%', ml: -1 }}>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={userGrowth}>
+                <defs>
+                  <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={T.indigo} stopOpacity={0.28} />
+                    <stop offset="100%" stopColor={T.indigo} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  stroke="#cbd5e1"
+                  tick={{ fontSize: 11, fontWeight: 600, fill: T.textFaint }}
+                  axisLine={false}
+                  tickLine={false}
                 />
-              }
-            />
-            <Box sx={{ width: '100%', ml: -1 }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={userGrowth}>
-                  <defs>
-                    <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.indigo} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={T.indigo} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    stroke="#cbd5e1"
-                    tick={{ fontSize: 11, fontWeight: 600, fill: T.textFaint }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    stroke="#cbd5e1"
-                    tick={{ fontSize: 11, fontWeight: 600, fill: T.textFaint }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={32}
-                  />
-                  <ReTooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="users"
-                    stroke={T.indigo}
-                    strokeWidth={2.5}
-                    fill="url(#growthGrad)"
-                    dot={{ fill: T.indigo, r: 3, strokeWidth: 2, stroke: '#fff' }}
-                    activeDot={{ r: 5, fill: T.indigo, stroke: '#fff', strokeWidth: 3 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Box>
-          </Paper>
-        </Grid>
+                <YAxis
+                  stroke="#cbd5e1"
+                  tick={{ fontSize: 11, fontWeight: 600, fill: T.textFaint }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={32}
+                />
+                <ReTooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="users"
+                  stroke={T.indigo}
+                  strokeWidth={2.5}
+                  fill="url(#growthGrad)"
+                  dot={{ fill: T.indigo, r: 3, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 5, fill: T.indigo, stroke: '#fff', strokeWidth: 3 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Box>
+        </Paper>
 
-        <Grid item xs={12} lg={4}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: T.radius,
-              border: `1px solid ${T.border}`,
-              bgcolor: T.surface,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <SectionHeader
-              title="User Roles"
-              subtitle={`${totalRoleCount} total accounts`}
-            />
+        {/* User Roles */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <SectionHeader
+            title="User Roles"
+            subtitle={`${totalRoleCount} total accounts`}
+          />
 
-            {totalRoleCount > 0 ? (
-              <Stack direction="row" spacing={2.5} alignItems="center" sx={{ flex: 1 }}>
-                <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={roleDist}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={46}
-                        outerRadius={66}
-                        paddingAngle={3}
-                        stroke="none"
-                      >
-                        {roleDist.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ReTooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <Box
+          {totalRoleCount > 0 ? (
+            <Stack direction="row" spacing={2.5} alignItems="center" sx={{ flex: 1 }}>
+              <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={roleDist}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={46}
+                      outerRadius={66}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {roleDist.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <ReTooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <Typography
                     sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none',
+                      fontSize: '1.35rem',
+                      fontWeight: 800,
+                      color: T.textPrimary,
+                      lineHeight: 1,
+                      fontFamily: T.fontDisplay,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        fontSize: '1.35rem',
-                        fontWeight: 800,
-                        color: T.textPrimary,
-                        lineHeight: 1,
-                        fontFamily: T.fontDisplay,
-                      }}
-                    >
-                      {totalRoleCount}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '0.58rem',
-                        color: T.textFaint,
-                        fontWeight: 700,
-                        letterSpacing: '0.1em',
-                        mt: 0.4,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Total
-                    </Typography>
-                  </Box>
+                    {totalRoleCount}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: '0.58rem',
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      mt: 0.4,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Total
+                  </Typography>
                 </Box>
-
-                <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-                  {roleDist.map((r) => {
-                    const pct = totalRoleCount > 0 ? Math.round((r.value / totalRoleCount) * 100) : 0;
-                    return (
-                      <Box key={r.name}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.6 }}>
-                          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: r.color, flexShrink: 0 }} />
-                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: T.textPrimary }} noWrap>
-                              {r.name}
-                            </Typography>
-                          </Stack>
-                          <Stack direction="row" alignItems="baseline" spacing={0.75}>
-                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: T.textPrimary }}>
-                              {r.value}
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: T.textFaint, minWidth: 26, textAlign: 'right' }}>
-                              {pct}%
-                            </Typography>
-                          </Stack>
-                        </Stack>
-                        <LinearProgress
-                          variant="determinate"
-                          value={pct}
-                          sx={{
-                            height: 4,
-                            borderRadius: 999,
-                            bgcolor: '#f1f5f9',
-                            '& .MuiLinearProgress-bar': { bgcolor: r.color, borderRadius: 999 },
-                          }}
-                        />
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              </Stack>
-            ) : (
-              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-                <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
-                  No data available
-                </Typography>
               </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+
+              <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+                {roleDist.map((r) => {
+                  const pct =
+                    totalRoleCount > 0
+                      ? Math.round((r.value / totalRoleCount) * 100)
+                      : 0;
+                  return (
+                    <Box key={r.name}>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ mb: 0.6 }}
+                      >
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={0.75}
+                          sx={{ minWidth: 0 }}
+                        >
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              bgcolor: r.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Typography
+                            sx={{
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              color: T.textPrimary,
+                            }}
+                            noWrap
+                          >
+                            {r.name}
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                          <Typography
+                            sx={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: T.textPrimary,
+                            }}
+                          >
+                            {r.value}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              color: T.textFaint,
+                              minWidth: 26,
+                              textAlign: 'right',
+                            }}
+                          >
+                            {pct}%
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={pct}
+                        sx={{
+                          height: 4,
+                          borderRadius: 999,
+                          bgcolor: '#f1f5f9',
+                          '& .MuiLinearProgress-bar': {
+                            bgcolor: r.color,
+                            borderRadius: 999,
+                          },
+                        }}
+                      />
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Stack>
+          ) : (
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 200,
+              }}
+            >
+              <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
+                No data available
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Box>
 
       {/* ═══════ ROW 3 — Booking Trend ═══════ */}
       <Paper
@@ -1013,8 +1077,21 @@ const Dashboard = () => {
           subtitle="Monthly bookings overview"
           action={
             <Stack direction="row" alignItems="center" spacing={0.75}>
-              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: T.amber }} />
-              <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: T.textMuted }}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: T.amber,
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  color: T.textMuted,
+                }}
+              >
                 Bookings
               </Typography>
             </Stack>
@@ -1044,182 +1121,251 @@ const Dashboard = () => {
                 tickLine={false}
                 width={32}
               />
-              <ReTooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(99,102,241,0.04)' }} />
-              <Bar dataKey="bookings" fill="url(#barGrad)" radius={[6, 6, 0, 0]} barSize={36} />
+              <ReTooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: 'rgba(99,102,241,0.04)' }}
+              />
+              <Bar
+                dataKey="bookings"
+                fill="url(#barGrad)"
+                radius={[6, 6, 0, 0]}
+                barSize={36}
+              />
             </BarChart>
           </ResponsiveContainer>
         </Box>
       </Paper>
 
       {/* ═══════ ROW 4 — Recent Activity ═══════ */}
-      <Grid container spacing={2.5}>
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: T.radius,
-              border: `1px solid ${T.border}`,
-              bgcolor: T.surface,
-              height: '100%',
-            }}
-          >
-            <SectionHeader
-              title="New Users"
-              subtitle="Recently joined"
-              action={
-                <Button
-                  size="small"
-                  href="/users"
-                  sx={{ textTransform: 'none', fontSize: '0.72rem', fontWeight: 700, color: T.indigo, minWidth: 'auto' }}
-                >
-                  View all →
-                </Button>
-              }
-            />
-            {d.recentUsers?.length ? (
-              <Stack spacing={0.5}>
-                {d.recentUsers.slice(0, 5).map((user) => {
-                  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
-                  const initial = user.firstName?.charAt(0)?.toUpperCase() || 'U';
-                  return (
-                    <Stack
-                      key={user.id}
-                      direction="row"
-                      alignItems="center"
-                      spacing={2}
-                      sx={{ p: 1.5, borderRadius: 2, '&:hover': { bgcolor: T.surfaceSoft } }}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 2.5,
+        }}
+      >
+        {/* New Users */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+          }}
+        >
+          <SectionHeader
+            title="New Users"
+            subtitle="Recently joined"
+            action={
+              <Button
+                size="small"
+                href="/users"
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: T.indigo,
+                  minWidth: 'auto',
+                }}
+              >
+                View all →
+              </Button>
+            }
+          />
+          {d.recentUsers?.length ? (
+            <Stack spacing={0.5}>
+              {d.recentUsers.slice(0, 5).map((user) => {
+                const name =
+                  `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+                  'User';
+                const initial = user.firstName?.charAt(0)?.toUpperCase() || 'U';
+                return (
+                  <Stack
+                    key={user.id}
+                    direction="row"
+                    alignItems="center"
+                    spacing={2}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      '&:hover': { bgcolor: T.surfaceSoft },
+                    }}
+                  >
+                    <Avatar
+                      src={user.profileImage || undefined}
+                      sx={{
+                        width: 38,
+                        height: 38,
+                        background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                      }}
                     >
-                      <Avatar
-                        src={user.profileImage || undefined}
+                      {initial}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
                         sx={{
-                          width: 38, height: 38,
-                          background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
-                          fontWeight: 700, fontSize: '0.82rem',
-                        }}
-                      >
-                        {initial}
-                      </Avatar>
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }} noWrap>
-                          {name}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.7rem', color: T.textFaint }} noWrap>
-                          {user.email || '—'}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={user.role || 'USER'}
-                        size="small"
-                        sx={{
-                          bgcolor: T.surfaceSoft,
-                          color: T.textMuted,
-                          border: `1px solid ${T.border}`,
+                          fontSize: '0.82rem',
                           fontWeight: 700,
-                          fontSize: '0.6rem',
-                          height: 20,
-                          borderRadius: 999,
+                          color: T.textPrimary,
                         }}
-                      />
-                    </Stack>
-                  );
-                })}
-              </Stack>
-            ) : (
-              <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
-                  No recent users
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
+                        noWrap
+                      >
+                        {name}
+                      </Typography>
+                      <Typography
+                        sx={{ fontSize: '0.7rem', color: T.textFaint }}
+                        noWrap
+                      >
+                        {user.email || '—'}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={user.role || 'USER'}
+                      size="small"
+                      sx={{
+                        bgcolor: T.surfaceSoft,
+                        color: T.textMuted,
+                        border: `1px solid ${T.border}`,
+                        fontWeight: 700,
+                        fontSize: '0.6rem',
+                        height: 20,
+                        borderRadius: 999,
+                      }}
+                    />
+                  </Stack>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
+                No recent users
+              </Typography>
+            </Box>
+          )}
+        </Paper>
 
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: T.radius,
-              border: `1px solid ${T.border}`,
-              bgcolor: T.surface,
-              height: '100%',
-            }}
-          >
-            <SectionHeader
-              title="Role Requests"
-              subtitle="Awaiting your approval"
-              action={
-                <Button
-                  size="small"
-                  href="/role-requests"
-                  sx={{ textTransform: 'none', fontSize: '0.72rem', fontWeight: 700, color: T.indigo, minWidth: 'auto' }}
-                >
-                  View all →
-                </Button>
-              }
-            />
-            {d.recentRoleRequests?.length ? (
-              <Stack spacing={0.5}>
-                {d.recentRoleRequests.slice(0, 5).map((req) => {
-                  const isGuider = req.requestedRole === 'GUIDER';
-                  return (
-                    <Stack
-                      key={req.id}
-                      direction="row"
-                      alignItems="center"
-                      spacing={2}
-                      sx={{ p: 1.5, borderRadius: 2, '&:hover': { bgcolor: T.surfaceSoft } }}
+        {/* Role Requests */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+          }}
+        >
+          <SectionHeader
+            title="Role Requests"
+            subtitle="Awaiting your approval"
+            action={
+              <Button
+                size="small"
+                href="/role-requests"
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: T.indigo,
+                  minWidth: 'auto',
+                }}
+              >
+                View all →
+              </Button>
+            }
+          />
+          {d.recentRoleRequests?.length ? (
+            <Stack spacing={0.5}>
+              {d.recentRoleRequests.slice(0, 5).map((req) => {
+                const isGuider = req.requestedRole === 'GUIDER';
+                return (
+                  <Stack
+                    key={req.id}
+                    direction="row"
+                    alignItems="center"
+                    spacing={2}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      '&:hover': { bgcolor: T.surfaceSoft },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: isGuider ? '#ede9fe' : '#fce7f3',
+                        color: isGuider ? T.violet : T.rose,
+                        flexShrink: 0,
+                      }}
                     >
-                      <Box
+                      <FaUserCog size={14} />
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
                         sx={{
-                          width: 38, height: 38, borderRadius: '50%',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          bgcolor: isGuider ? '#ede9fe' : '#fce7f3',
-                          color: isGuider ? T.violet : T.rose,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <FaUserCog size={14} />
-                      </Box>
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }} noWrap>
-                          {req.fullName || 'Unknown'}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.68rem', color: T.textFaint, textTransform: 'uppercase', fontWeight: 700 }} noWrap>
-                          → {req.requestedRole}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={req.status}
-                        size="small"
-                        sx={{
-                          bgcolor:
-                            req.status === 'PENDING' ? '#fef3c7' :
-                            req.status === 'APPROVED' ? T.emeraldSoft : T.roseSoft,
-                          color:
-                            req.status === 'PENDING' ? '#b45309' :
-                            req.status === 'APPROVED' ? '#047857' : '#be123c',
+                          fontSize: '0.82rem',
                           fontWeight: 700,
-                          fontSize: '0.6rem',
-                          height: 20,
-                          borderRadius: 999,
+                          color: T.textPrimary,
                         }}
-                      />
-                    </Stack>
-                  );
-                })}
-              </Stack>
-            ) : (
-              <Box sx={{ py: 4, textAlign: 'center' }}>
-                <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
-                  No role requests
-                </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+                        noWrap
+                      >
+                        {req.fullName || 'Unknown'}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '0.68rem',
+                          color: T.textFaint,
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                        }}
+                        noWrap
+                      >
+                        → {req.requestedRole}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={req.status}
+                      size="small"
+                      sx={{
+                        bgcolor:
+                          req.status === 'PENDING'
+                            ? '#fef3c7'
+                            : req.status === 'APPROVED'
+                            ? T.emeraldSoft
+                            : T.roseSoft,
+                        color:
+                          req.status === 'PENDING'
+                            ? '#b45309'
+                            : req.status === 'APPROVED'
+                            ? '#047857'
+                            : '#be123c',
+                        fontWeight: 700,
+                        fontSize: '0.6rem',
+                        height: 20,
+                        borderRadius: 999,
+                      }}
+                    />
+                  </Stack>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography sx={{ color: T.textFaint, fontSize: '0.82rem' }}>
+                No role requests
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 };

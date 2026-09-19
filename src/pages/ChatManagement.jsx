@@ -4,47 +4,45 @@ import {
   Box, Paper, Typography, TextField, Button, IconButton, Chip,
   Stack, InputAdornment, CircularProgress, Avatar, List, ListItem,
   ListItemAvatar, ListItemText, Dialog, DialogTitle,
-  DialogContent, DialogActions, Grid, MenuItem, Select, FormControl,
+  DialogContent, DialogActions, MenuItem, Select, FormControl,
   InputLabel, Pagination, Badge, Tooltip, Skeleton, Divider, alpha,
 } from '@mui/material';
 import {
-  Send, Search, Refresh, Person, CameraAlt, PersonPin, Add,
-  DoneAll, Delete, Phone, Email, MoreVert, Image as ImageIcon,
-  AttachFile, Mic, EmojiEmotions, Close, Verified,
+  Send, Search, Refresh, Add, DoneAll, Delete, Phone, Email,
+  EmojiEmotions, AttachFile,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
 import PanelHeader from '../components/PanelHeader';
 import apiClient from '../api/axios';
-import { COLORS, FONT_DISPLAY } from '../theme/dashboardTheme';
 
-// ---------- Color Palette ----------
-const PALETTE = {
-  primary: '#6366F1',
-  primaryDark: '#4F46E5',
-  primaryLight: '#818CF8',
-  bg: '#F0F4FF',
-  surface: '#FFFFFF',
-  border: '#E2E8F0',
-  text: '#1E293B',
-  textMuted: '#64748B',
-  textFaint: '#94A3B8',
-  success: '#10B981',
-  error: '#EF4444',
-  warning: '#F59E0B',
-  online: '#10B981',
-  offline: '#CBD5E1',
-  guider: '#8B5CF6',
-  photographer: '#EC4899',
-  user: '#3B82F6',
-  admin: '#F59E0B',
-  messageBg: '#F1F5F9',
-  inputBg: '#F8FAFC',
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  violetSoft: '#ede9fe',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  skySoft: '#e0f2fe',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
-// ✅ Helper: get logged-in admin's own user id.
-// Adjust this if your app stores the admin user differently
-// (e.g. from a Redux store or AuthContext instead of localStorage).
 const getCurrentUserId = () => {
   try {
     const raw =
@@ -59,33 +57,31 @@ const getCurrentUserId = () => {
   }
 };
 
-// ---------- Role Badge ----------
-const RoleBadge = ({ role, size = 'small' }) => {
-  const styles = {
-    GUIDER: { bg: alpha(PALETTE.guider, 0.1), color: PALETTE.guider, label: 'Guider' },
-    PHOTOGRAPHER: { bg: alpha(PALETTE.photographer, 0.1), color: PALETTE.photographer, label: 'Photographer' },
-    USER: { bg: alpha(PALETTE.user, 0.1), color: PALETTE.user, label: 'User' },
-    ADMIN: { bg: alpha(PALETTE.admin, 0.1), color: PALETTE.admin, label: 'Admin' },
-  };
-  const style = styles[role] || styles.USER;
+const ROLE_STYLES = {
+  GUIDER: { bg: T.violetSoft, color: '#6d28d9', label: 'Guider' },
+  PHOTOGRAPHER: { bg: T.roseSoft, color: '#be185d', label: 'Photographer' },
+  USER: { bg: T.skySoft, color: '#0369a1', label: 'User' },
+  ADMIN: { bg: T.amberSoft, color: '#b45309', label: 'Admin' },
+};
+
+const RoleBadge = ({ role }) => {
+  const s = ROLE_STYLES[role] || ROLE_STYLES.USER;
   return (
     <Chip
-      label={style.label}
-      size={size}
+      label={s.label}
+      size="small"
       sx={{
-        bgcolor: style.bg,
-        color: style.color,
+        bgcolor: s.bg,
+        color: s.color,
         fontWeight: 700,
-        fontSize: size === 'small' ? '0.65rem' : '0.7rem',
-        height: size === 'small' ? 20 : 24,
-        borderRadius: '6px',
-        letterSpacing: '0.02em',
+        fontSize: '0.62rem',
+        height: 20,
+        borderRadius: 999,
       }}
     />
   );
 };
 
-// ---------- Online Indicator ----------
 const OnlineIndicator = ({ online }) => (
   <Tooltip title={online ? 'Online' : 'Offline'}>
     <Box
@@ -93,23 +89,22 @@ const OnlineIndicator = ({ online }) => (
         width: 8,
         height: 8,
         borderRadius: '50%',
-        bgcolor: online ? PALETTE.online : PALETTE.offline,
+        bgcolor: online ? T.emerald : '#cbd5e1',
         display: 'inline-block',
         ml: 0.5,
-        boxShadow: online ? `0 0 0 2px ${alpha(PALETTE.online, 0.2)}` : 'none',
+        boxShadow: online ? `0 0 0 2px ${T.emerald}33` : 'none',
       }}
     />
   </Tooltip>
 );
 
-// ---------- Avatar with initials ----------
 const UserAvatar = ({ user, size = 40 }) => {
   const role = user?.role || 'USER';
-  const bgColors = {
-    GUIDER: alpha(PALETTE.guider, 0.1),
-    PHOTOGRAPHER: alpha(PALETTE.photographer, 0.1),
-    USER: alpha(PALETTE.user, 0.1),
-    ADMIN: alpha(PALETTE.admin, 0.1),
+  const gradients = {
+    GUIDER: `linear-gradient(135deg, ${T.violet}, #a78bfa)`,
+    PHOTOGRAPHER: `linear-gradient(135deg, ${T.rose}, #f472b6)`,
+    ADMIN: `linear-gradient(135deg, ${T.amber}, #fbbf24)`,
+    USER: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
   };
   return (
     <Avatar
@@ -117,11 +112,12 @@ const UserAvatar = ({ user, size = 40 }) => {
       sx={{
         width: size,
         height: size,
-        bgcolor: bgColors[role] || alpha(PALETTE.user, 0.1),
-        color: role === 'GUIDER' ? PALETTE.guider : role === 'PHOTOGRAPHER' ? PALETTE.photographer : role === 'ADMIN' ? PALETTE.admin : PALETTE.user,
-        fontWeight: 800,
-        fontSize: size * 0.38,
-        border: `2px solid ${role === 'GUIDER' ? alpha(PALETTE.guider, 0.3) : role === 'PHOTOGRAPHER' ? alpha(PALETTE.photographer, 0.3) : alpha(PALETTE.user, 0.3)}`,
+        background: gradients[role] || gradients.USER,
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: size * 0.4,
+        border: '2px solid #fff',
+        boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
       }}
     >
       {(user?.firstName || 'U').charAt(0).toUpperCase()}
@@ -129,7 +125,9 @@ const UserAvatar = ({ user, size = 40 }) => {
   );
 };
 
-// ---------- Search Users Dialog (Fixed Role Label) ----------
+// ═══════════════════════════════════════════════════════════════
+// SEARCH USERS DIALOG
+// ═══════════════════════════════════════════════════════════════
 const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -150,7 +148,7 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
       };
       const res = await apiClient.get('/admin/users', { params });
       const data = res.data.data;
-      const users = Array.isArray(data) ? data : (data?.rows || data?.items || []);
+      const users = Array.isArray(data) ? data : data?.rows || data?.items || [];
       setSearchResults(users);
       setTotal(data?.total || data?.count || users.length || 0);
     } catch (error) {
@@ -174,15 +172,43 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: '1.1rem' }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Search sx={{ color: PALETTE.primary }} />
-          <span>Find People</span>
-        </Stack>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: T.radius } } }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: T.fontDisplay,
+          fontWeight: 700,
+          fontSize: '1.05rem',
+          color: T.textPrimary,
+          borderBottom: `1px solid ${T.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+        }}
+      >
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            bgcolor: T.indigoSoft,
+            color: T.indigo,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Search sx={{ fontSize: 18 }} />
+        </Box>
+        Find People
       </DialogTitle>
-      <DialogContent sx={{ pb: 0 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+      <DialogContent sx={{ p: 3, borderColor: T.border }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
           <TextField
             fullWidth
             size="small"
@@ -190,32 +216,32 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && searchUsers()}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '12px',
-                bgcolor: '#F8FAFC',
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: PALETTE.primary,
-                },
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
+                  </InputAdornment>
+                ),
               },
             }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search sx={{ color: PALETTE.textFaint, fontSize: 20 }} />
-                </InputAdornment>
-              ),
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
+                '&:hover fieldset': { borderColor: '#c7d2fe' },
+                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+              },
             }}
           />
-          {/* ✅ FIX: Role Select – Label ab cut nahi hoga */}
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel shrink>Role</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Role</InputLabel>
             <Select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               label="Role"
-              notched
-              sx={{ borderRadius: '12px', bgcolor: '#F8FAFC' }}
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
             >
               <MenuItem value="ALL">All Roles</MenuItem>
               <MenuItem value="USER">Users</MenuItem>
@@ -228,13 +254,15 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={32} sx={{ color: PALETTE.primary }} />
+            <CircularProgress size={32} sx={{ color: T.indigo }} />
           </Box>
         ) : (
-          <List sx={{ maxHeight: 380, overflowY: 'auto' }}>
+          <List sx={{ maxHeight: 380, overflowY: 'auto', p: 0 }}>
             {searchResults.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 5 }}>
-                <Typography color="textSecondary">No users found</Typography>
+                <Typography sx={{ color: T.textFaint, fontSize: '0.85rem' }}>
+                  No users found
+                </Typography>
               </Box>
             ) : (
               searchResults.map((user) => (
@@ -243,13 +271,13 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
                   button
                   onClick={() => onSelectUser(user)}
                   sx={{
-                    borderRadius: '12px',
+                    borderRadius: 2,
                     mb: 0.5,
                     px: 2,
                     py: 1,
                     transition: 'all 0.2s ease',
                     '&:hover': {
-                      bgcolor: alpha(PALETTE.primary, 0.04),
+                      bgcolor: T.indigoSoft,
                       transform: 'translateX(2px)',
                     },
                   }}
@@ -260,22 +288,46 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
                   <ListItemText
                     primary={
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="body2" fontWeight={700}>
-                          {`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown'}
+                        <Typography
+                          sx={{ fontSize: '0.85rem', fontWeight: 700, color: T.textPrimary }}
+                        >
+                          {`${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+                            user.email ||
+                            'Unknown'}
                         </Typography>
                         <RoleBadge role={user.role} />
                         <OnlineIndicator online={user.isOnline} />
                       </Stack>
                     }
                     secondary={
-                      <Stack direction="row" spacing={0.5} alignItems="center" mt={0.3}>
-                        <Typography variant="caption" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.3 }}>
+                        <Typography
+                          sx={{
+                            fontSize: '0.7rem',
+                            color: T.textMuted,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.3,
+                          }}
+                        >
                           <Email sx={{ fontSize: 12 }} /> {user.email || 'No email'}
                         </Typography>
                         {user.phone && (
                           <>
-                            <Divider orientation="vertical" flexItem sx={{ height: 12, alignSelf: 'center' }} />
-                            <Typography variant="caption" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                            <Divider
+                              orientation="vertical"
+                              flexItem
+                              sx={{ height: 12, alignSelf: 'center', borderColor: T.border }}
+                            />
+                            <Typography
+                              sx={{
+                                fontSize: '0.7rem',
+                                color: T.textMuted,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.3,
+                              }}
+                            >
                               <Phone sx={{ fontSize: 12 }} /> {user.phone}
                             </Typography>
                           </>
@@ -283,8 +335,16 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
                       </Stack>
                     }
                   />
-                  <IconButton size="small" sx={{ color: PALETTE.primary }}>
-                    <Add fontSize="small" />
+                  <IconButton
+                    size="small"
+                    sx={{
+                      bgcolor: T.indigoSoft,
+                      color: T.indigo,
+                      width: 32,
+                      height: 32,
+                    }}
+                  >
+                    <Add sx={{ fontSize: 16 }} />
                   </IconButton>
                 </ListItem>
               ))
@@ -294,18 +354,36 @@ const SearchUsersDialog = ({ open, onClose, onSelectUser }) => {
 
         {total > limit && (
           <Stack alignItems="center" sx={{ py: 1.5 }}>
-            <Pagination count={Math.ceil(total / limit)} page={page} onChange={(e, p) => setPage(p)} color="primary" size="small" />
+            <Pagination
+              count={Math.ceil(total / limit)}
+              page={page}
+              onChange={(e, p) => setPage(p)}
+              size="small"
+              sx={{
+                '& .MuiPaginationItem-root.Mui-selected': {
+                  bgcolor: T.indigo,
+                  color: '#fff',
+                },
+              }}
+            />
           </Stack>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} sx={{ color: PALETTE.textMuted }}>Close</Button>
+      <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}` }}>
+        <Button
+          onClick={handleClose}
+          sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+        >
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-// ---------- Main Chat Management Component ----------
+// ═══════════════════════════════════════════════════════════════
+// MAIN CHAT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
 const ChatManagement = () => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -321,12 +399,7 @@ const ChatManagement = () => {
   const limit = 20;
   const [unreadCounts, setUnreadCounts] = useState({});
   const messagesEndRef = useRef(null);
-  const [showMore, setShowMore] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
-  const [attachments, setAttachments] = useState([]);
 
-  // ✅ refs so the socket listener always sees the latest selected conversation
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
 
@@ -342,7 +415,9 @@ const ChatManagement = () => {
       const convs = Array.isArray(data) ? data : [];
       setConversations(convs);
       const counts = {};
-      convs.forEach((c) => { counts[c.id] = c.unreadCount || 0; });
+      convs.forEach((c) => {
+        counts[c.id] = c.unreadCount || 0;
+      });
       setUnreadCounts(counts);
       setTotal(data?.total || convs.length);
     } catch (error) {
@@ -353,24 +428,19 @@ const ChatManagement = () => {
     }
   }, []);
 
-  useEffect(() => { fetchConversations(); }, [fetchConversations]);
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
 
-  // ✅ FIX: Use socket.io-client instead of raw WebSocket — backend runs
-  // Socket.IO, and a plain `new WebSocket(...)` cannot talk to it (different
-  // handshake protocol), so real-time events never actually arrived here.
   useEffect(() => {
     const adminId = getCurrentUserId();
-    if (!adminId) {
-      console.warn('⚠️ Could not determine current admin user id — real-time chat updates will not work. Check getCurrentUserId().');
-      return;
-    }
+    if (!adminId) return;
 
     const SOCKET_URL = apiClient.defaults.baseURL.replace('/api/v1', '');
     const socket = io(SOCKET_URL, { transports: ['websocket'] });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('🔌 Admin socket connected:', socket.id);
       socket.emit('register', adminId);
     });
 
@@ -391,13 +461,7 @@ const ChatManagement = () => {
           [conversationId]: (prev[conversationId] || 0) + 1,
         }));
       }
-
-      // Keep conversation list preview + ordering fresh
       fetchConversations();
-    });
-
-    socket.on('connect_error', (err) => {
-      console.log('❌ Admin socket connect_error:', err.message);
     });
 
     return () => {
@@ -409,7 +473,9 @@ const ChatManagement = () => {
     setSelectedConversation(conversation);
     setLoadingMessages(true);
     try {
-      const res = await apiClient.get(`/chat/conversations/${conversation.id}/messages`);
+      const res = await apiClient.get(
+        `/chat/conversations/${conversation.id}/messages`
+      );
       const data = res.data.data;
       setMessages(data.messages || []);
       setUnreadCounts((prev) => ({ ...prev, [conversation.id]: 0 }));
@@ -423,44 +489,45 @@ const ChatManagement = () => {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
-
     const otherParticipantId = selectedConversation.otherParticipant?.id;
     if (!otherParticipantId) {
       toast.error('User ID not found');
       return;
     }
-
     const content = newMessage.trim();
     setNewMessage('');
-
     try {
       const res = await apiClient.post('/chat/send', {
         receiverId: otherParticipantId,
         content,
       });
-      // ✅ Backend may return { message, conversationId } or the message directly — handle both
       const payload = res.data.data;
       const newMsg = payload?.message || payload;
-
       setMessages((prev) =>
         prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
       );
       setConversations((prev) =>
         prev.map((conv) =>
           conv.id === selectedConversation.id
-            ? { ...conv, lastMessage: newMsg.content, lastMessageAt: new Date().toISOString() }
+            ? {
+                ...conv,
+                lastMessage: newMsg.content,
+                lastMessageAt: new Date().toISOString(),
+              }
             : conv
         )
       );
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to send message');
-      setNewMessage(content); // restore on failure
+      setNewMessage(content);
     }
   };
 
   const handleStartConversation = async (user) => {
     try {
-      const res = await apiClient.post('/chat/conversations/start', { otherUserId: user.id });
+      const res = await apiClient.post('/chat/conversations/start', {
+        otherUserId: user.id,
+      });
       const conversation = res.data.data;
       setSearchDialogOpen(false);
       await fetchConversations();
@@ -479,9 +546,9 @@ const ChatManagement = () => {
 
   const filteredConversations = conversations.filter((conv) => {
     const name = conv.otherParticipant?.name?.toLowerCase() || '';
-    const role = conv.otherParticipant?.role?.toLowerCase() || '';
     const matchesSearch = name.includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'ALL' || conv.otherParticipant?.role === roleFilter;
+    const matchesRole =
+      roleFilter === 'ALL' || conv.otherParticipant?.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -500,270 +567,388 @@ const ChatManagement = () => {
     return date.toLocaleDateString([], { day: '2-digit', month: 'short' });
   };
 
-  const isMyMessage = (message) => message.senderId !== selectedConversation?.otherParticipant?.id;
+  const isMyMessage = (message) =>
+    message.senderId !== selectedConversation?.otherParticipant?.id;
 
   return (
-    // ✅ FIX: fixed viewport height on the outer box so nothing pushes the
-    // whole page taller — everything below scrolls inside its own panel.
-    <Box sx={{
-      bgcolor: PALETTE.bg,
-      p: { xs: 2, md: 3 },
-      height: '100vh',
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
-      background: `linear-gradient(135deg, ${alpha(PALETTE.primary, 0.03)} 0%, ${PALETTE.bg} 40%, ${alpha(PALETTE.user, 0.03)} 100%)`,
-    }}>
-      <PanelHeader eyebrow="Support Center" title="💬 Chat Management" />
+    <Box
+      sx={{
+        p: { xs: 2, md: 3 },
+        height: '100vh',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        maxWidth: 1440,
+        mx: 'auto',
+      }}
+    >
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="Support Center" title="Chat Management" />
+      </Box>
 
-      <Grid container spacing={2.5} sx={{ flex: 1, minHeight: 0, mt: 0.5 }}>
-        {/* ===== LEFT: Conversations List ===== */}
-        <Grid item xs={12} md={4} lg={3.5} sx={{ height: '100%', minHeight: 0 }}>
-          <Paper elevation={0} sx={{
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(280px, 1fr) 2fr' },
+          gap: 2.5,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {/* ============ LEFT: Conversation List ============ */}
+        <Paper
+          elevation={0}
+          sx={{
             height: '100%',
-            borderRadius: '20px',
-            border: `1px solid ${PALETTE.border}`,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            bgcolor: PALETTE.surface,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-          }}>
-            {/* Header */}
-            <Box sx={{ p: 2.5, borderBottom: `1px solid ${PALETTE.border}`, bgcolor: alpha(PALETTE.primary, 0.03), flexShrink: 0 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                <Typography variant="h6" fontWeight={800} sx={{ fontFamily: FONT_DISPLAY, color: PALETTE.text }}>
-                  💬 Chats
-                  <Chip
-                    label={filteredConversations.length}
-                    size="small"
-                    sx={{ ml: 1, bgcolor: alpha(PALETTE.primary, 0.1), color: PALETTE.primary, fontWeight: 700, height: 20, fontSize: '0.65rem' }}
-                  />
+            bgcolor: T.surface,
+          }}
+        >
+          <Box
+            sx={{
+              p: 2.5,
+              borderBottom: `1px solid ${T.border}`,
+              bgcolor: T.surfaceSoft,
+              flexShrink: 0,
+            }}
+          >
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography
+                  sx={{
+                    fontFamily: T.fontDisplay,
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    color: T.textPrimary,
+                  }}
+                >
+                  Chats
                 </Typography>
-                <Tooltip title="Start New Chat">
-                  <IconButton
-                    size="small"
-                    onClick={() => setSearchDialogOpen(true)}
-                    sx={{
-                      bgcolor: PALETTE.primary,
-                      color: '#fff',
-                      '&:hover': { bgcolor: PALETTE.primaryDark, transform: 'scale(1.05)' },
-                      transition: 'all 0.2s ease',
-                      width: 32,
-                      height: 32,
-                    }}
-                  >
-                    <Add fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <Chip
+                  label={filteredConversations.length}
+                  size="small"
+                  sx={{
+                    bgcolor: T.indigoSoft,
+                    color: T.indigo,
+                    fontWeight: 700,
+                    height: 20,
+                    fontSize: '0.65rem',
+                    borderRadius: 999,
+                  }}
+                />
               </Stack>
+              <Tooltip title="Start new chat">
+                <IconButton
+                  size="small"
+                  onClick={() => setSearchDialogOpen(true)}
+                  sx={{
+                    bgcolor: T.indigo,
+                    color: '#fff',
+                    '&:hover': { bgcolor: '#4f46e5' },
+                    width: 32,
+                    height: 32,
+                  }}
+                >
+                  <Add sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
 
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search chats..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{
-                  mt: 1.5,
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                    bgcolor: '#F8FAFC',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: PALETTE.primary },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PALETTE.primary, borderWidth: 2 },
-                  },
-                }}
-                InputProps={{
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search chats..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              slotProps={{
+                input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search sx={{ color: PALETTE.textFaint, fontSize: 20 }} />
+                      <Search sx={{ fontSize: 18, color: T.textFaint }} />
                     </InputAdornment>
                   ),
-                }}
-              />
+                },
+              }}
+              sx={{
+                mt: 1.5,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: '#fff',
+                  '& fieldset': { borderColor: T.border },
+                  '&:hover fieldset': { borderColor: '#c7d2fe' },
+                  '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+                },
+              }}
+            />
 
-              {/* ✅ FIX: Role Filter Select – Label cut nahi hoga */}
-              <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
-                <InputLabel shrink>Filter by Role</InputLabel>
-                <Select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  label="Filter by Role"
-                  notched
-                  sx={{ borderRadius: '12px', bgcolor: '#F8FAFC' }}
+            <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+              <InputLabel>Filter by Role</InputLabel>
+              <Select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                label="Filter by Role"
+                sx={{ borderRadius: 2, bgcolor: '#fff' }}
+              >
+                <MenuItem value="ALL">All Roles</MenuItem>
+                <MenuItem value="USER">Users</MenuItem>
+                <MenuItem value="GUIDER">Guiders</MenuItem>
+                <MenuItem value="PHOTOGRAPHER">Photographers</MenuItem>
+                <MenuItem value="ADMIN">Admins</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 1 }}>
+            {loading ? (
+              <Box sx={{ p: 1 }}>
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    variant="rectangular"
+                    height={64}
+                    sx={{ mb: 1, borderRadius: 2 }}
+                  />
+                ))}
+              </Box>
+            ) : filteredConversations.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
+                <Typography sx={{ color: T.textFaint, fontSize: '0.82rem', mb: 1.5 }}>
+                  No conversations yet
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setSearchDialogOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderColor: T.border,
+                    color: T.indigo,
+                  }}
                 >
-                  <MenuItem value="ALL">All Roles</MenuItem>
-                  <MenuItem value="USER">Users</MenuItem>
-                  <MenuItem value="GUIDER">Guiders</MenuItem>
-                  <MenuItem value="PHOTOGRAPHER">Photographers</MenuItem>
-                  <MenuItem value="ADMIN">Admins</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Conversation List — ✅ FIX: minHeight:0 so this scrolls
-                inside the fixed-height panel instead of growing the page */}
-            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', bgcolor: PALETTE.surface, p: 1 }}>
-              {loading ? (
-                <Box sx={{ p: 1 }}>
-                  {[...Array(6)].map((_, i) => (
-                    <Skeleton key={i} variant="rectangular" height={64} sx={{ mb: 1, borderRadius: '12px' }} />
-                  ))}
-                </Box>
-              ) : filteredConversations.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
-                  <Typography color={PALETTE.textMuted} sx={{ mb: 1 }}>No conversations yet</Typography>
-                  <Button variant="outlined" size="small" onClick={() => setSearchDialogOpen(true)}>
-                    Start New Chat
-                  </Button>
-                </Box>
-              ) : (
-                <List sx={{ p: 0 }}>
-                  {filteredConversations.map((conversation) => {
-                    const isSelected = selectedConversation?.id === conversation.id;
-                    const hasUnread = unreadCounts[conversation.id] > 0;
-                    return (
-                      <ListItem
-                        key={conversation.id}
-                        button
-                        selected={isSelected}
-                        onClick={() => handleSelectConversation(conversation)}
+                  Start New Chat
+                </Button>
+              </Box>
+            ) : (
+              <List sx={{ p: 0 }}>
+                {filteredConversations.map((conversation) => {
+                  const isSelected = selectedConversation?.id === conversation.id;
+                  const hasUnread = unreadCounts[conversation.id] > 0;
+                  return (
+                    <ListItem
+                      key={conversation.id}
+                      button
+                      selected={isSelected}
+                      onClick={() => handleSelectConversation(conversation)}
+                      sx={{
+                        borderRadius: 2,
+                        mb: 0.5,
+                        px: 1.5,
+                        py: 1.2,
+                        transition: 'all 0.2s ease',
+                        '&.Mui-selected': {
+                          bgcolor: T.indigoSoft,
+                          boxShadow: `inset 0 0 0 1px ${T.indigo}33`,
+                          '&:hover': { bgcolor: '#e0e7ff' },
+                        },
+                        '&:hover': { bgcolor: T.surfaceSoft },
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Box sx={{ position: 'relative' }}>
+                          <UserAvatar user={conversation.otherParticipant} size={46} />
+                          {hasUnread && (
+                            <Badge
+                              badgeContent={unreadCounts[conversation.id]}
+                              color="error"
+                              max={99}
+                              sx={{
+                                position: 'absolute',
+                                top: -2,
+                                right: -2,
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.6rem',
+                                  height: 18,
+                                  minWidth: 18,
+                                  bgcolor: T.rose,
+                                  fontWeight: 700,
+                                  boxShadow: '0 0 0 2px #fff',
+                                },
+                              }}
+                            >
+                              <Box sx={{ width: 0, height: 0 }} />
+                            </Badge>
+                          )}
+                        </Box>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.5}
+                            sx={{ mb: 0.3 }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                color: T.textPrimary,
+                                maxWidth: 140,
+                              }}
+                              noWrap
+                            >
+                              {conversation.otherParticipant?.name || 'Unknown'}
+                            </Typography>
+                            <RoleBadge role={conversation.otherParticipant?.role} />
+                          </Stack>
+                        }
+                        secondary={
+                          <Typography
+                            sx={{
+                              fontSize: '0.7rem',
+                              color: hasUnread ? T.textPrimary : T.textFaint,
+                              fontWeight: hasUnread ? 600 : 400,
+                              maxWidth: 150,
+                            }}
+                            noWrap
+                          >
+                            {conversation.lastMessage || 'No messages yet'}
+                          </Typography>
+                        }
+                      />
+                      <Typography
                         sx={{
-                          borderRadius: '14px',
-                          mb: 0.5,
-                          px: 1.5,
-                          py: 1.2,
-                          transition: 'all 0.2s ease',
-                          '&.Mui-selected': {
-                            bgcolor: alpha(PALETTE.primary, 0.08),
-                            boxShadow: `inset 0 0 0 2px ${alpha(PALETTE.primary, 0.15)}`,
-                            '&:hover': { bgcolor: alpha(PALETTE.primary, 0.12) },
-                          },
-                          '&:hover': { bgcolor: alpha(PALETTE.primary, 0.03) },
+                          fontSize: '0.62rem',
+                          color: hasUnread ? T.indigo : T.textFaint,
+                          fontWeight: hasUnread ? 700 : 500,
+                          flexShrink: 0,
                         }}
                       >
-                        <ListItemAvatar>
-                          <Box sx={{ position: 'relative' }}>
-                            <UserAvatar user={conversation.otherParticipant} size={46} />
-                            {hasUnread && (
-                              <Badge
-                                badgeContent={unreadCounts[conversation.id]}
-                                color="error"
-                                max={99}
-                                sx={{
-                                  '& .MuiBadge-badge': {
-                                    fontSize: '0.6rem',
-                                    height: 18,
-                                    minWidth: 18,
-                                    bgcolor: PALETTE.error,
-                                    fontWeight: 700,
-                                  },
-                                }}
-                              >
-                                <Box sx={{ width: 0, height: 0 }} />
-                              </Badge>
-                            )}
-                          </Box>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.3 }}>
-                              <Typography variant="body2" fontWeight={700} noWrap sx={{ maxWidth: 140, color: PALETTE.text }}>
-                                {conversation.otherParticipant?.name || 'Unknown'}
-                              </Typography>
-                              <RoleBadge role={conversation.otherParticipant?.role} />
-                              <OnlineIndicator online={conversation.otherParticipant?.isOnline} />
-                            </Stack>
-                          }
-                          secondary={
-                            <Typography
-                              variant="caption"
-                              color={hasUnread ? PALETTE.text : PALETTE.textFaint}
-                              noWrap
-                              sx={{ fontWeight: hasUnread ? 600 : 400, display: 'block', maxWidth: 150 }}
-                            >
-                              {conversation.lastMessage || 'No messages yet'}
-                            </Typography>
-                          }
-                        />
-                        <Stack direction="column" alignItems="flex-end" spacing={0.5}>
-                          <Typography variant="caption" sx={{ color: hasUnread ? PALETTE.primary : PALETTE.textFaint, fontWeight: hasUnread ? 700 : 400, fontSize: '0.65rem' }}>
-                            {formatTime(conversation.lastMessageAt)}
-                          </Typography>
-                        </Stack>
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              )}
-            </Box>
-
-            {/* Pagination */}
-            {total > limit && (
-              <Box sx={{ p: 1.5, borderTop: `1px solid ${PALETTE.border}`, flexShrink: 0 }}>
-                <Pagination
-                  count={Math.ceil(total / limit)}
-                  page={page}
-                  onChange={(e, p) => setPage(p)}
-                  size="small"
-                  color="primary"
-                  sx={{ display: 'flex', justifyContent: 'center' }}
-                />
-              </Box>
+                        {formatTime(conversation.lastMessageAt)}
+                      </Typography>
+                    </ListItem>
+                  );
+                })}
+              </List>
             )}
-          </Paper>
-        </Grid>
+          </Box>
 
-        {/* ===== RIGHT: Chat Window ===== */}
-        <Grid item xs={12} md={8} lg={8.5} sx={{ height: '100%', minHeight: 0 }}>
-          <Paper elevation={0} sx={{
+          {total > limit && (
+            <Box sx={{ p: 1.5, borderTop: `1px solid ${T.border}`, flexShrink: 0 }}>
+              <Pagination
+                count={Math.ceil(total / limit)}
+                page={page}
+                onChange={(e, p) => setPage(p)}
+                size="small"
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  '& .MuiPaginationItem-root.Mui-selected': {
+                    bgcolor: T.indigo,
+                    color: '#fff',
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </Paper>
+
+        {/* ============ RIGHT: Chat Window ============ */}
+        <Paper
+          elevation={0}
+          sx={{
             height: '100%',
-            borderRadius: '20px',
-            border: `1px solid ${PALETTE.border}`,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            bgcolor: PALETTE.surface,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-          }}>
-            {selectedConversation ? (
-              <>
-                {/* Chat Header */}
-                <Box sx={{
+            bgcolor: T.surface,
+          }}
+        >
+          {selectedConversation ? (
+            <>
+              {/* Chat Header */}
+              <Box
+                sx={{
                   p: 2,
-                  borderBottom: `1px solid ${PALETTE.border}`,
+                  borderBottom: `1px solid ${T.border}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  bgcolor: alpha(PALETTE.primary, 0.03),
+                  bgcolor: T.surfaceSoft,
                   flexShrink: 0,
-                }}>
-                  <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <UserAvatar user={selectedConversation.otherParticipant} size={44} />
-                    <Box>
-                      <Stack direction="row" alignItems="center" spacing={0.5}>
-                        <Typography variant="subtitle1" fontWeight={800} sx={{ color: PALETTE.text }}>
-                          {selectedConversation.otherParticipant?.name || 'Unknown'}
-                        </Typography>
-                        <RoleBadge role={selectedConversation.otherParticipant?.role} />
-                        <OnlineIndicator online={selectedConversation.otherParticipant?.isOnline} />
-                      </Stack>
-                      <Typography variant="caption" color={PALETTE.textMuted} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Phone sx={{ fontSize: 12 }} /> {selectedConversation.otherParticipant?.phone || 'No phone'} •
-                        <Email sx={{ fontSize: 12 }} /> {selectedConversation.otherParticipant?.email || 'No email'}
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <UserAvatar user={selectedConversation.otherParticipant} size={44} />
+                  <Box>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <Typography
+                        sx={{ fontSize: '0.9rem', fontWeight: 700, color: T.textPrimary }}
+                      >
+                        {selectedConversation.otherParticipant?.name || 'Unknown'}
                       </Typography>
-                    </Box>
-                  </Stack>
-                  <Stack direction="row" spacing={0.5}>
-                    <Tooltip title="Refresh">
-                      <IconButton size="small" onClick={fetchConversations} sx={{ color: PALETTE.textMuted, '&:hover': { color: PALETTE.primary } }}>
-                        <Refresh fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete Conversation">
-                      <IconButton size="small" color="error" onClick={() => {
+                      <RoleBadge role={selectedConversation.otherParticipant?.role} />
+                      <OnlineIndicator online={selectedConversation.otherParticipant?.isOnline} />
+                    </Stack>
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.3 }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.68rem',
+                          color: T.textFaint,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.3,
+                        }}
+                      >
+                        <Phone sx={{ fontSize: 11 }} />
+                        {selectedConversation.otherParticipant?.phone || 'No phone'}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '0.68rem',
+                          color: T.textFaint,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.3,
+                        }}
+                      >
+                        <Email sx={{ fontSize: 11 }} />
+                        {selectedConversation.otherParticipant?.email || 'No email'}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={0.5}>
+                  <Tooltip title="Refresh">
+                    <IconButton
+                      size="small"
+                      onClick={fetchConversations}
+                      sx={{
+                        bgcolor: T.surface,
+                        border: `1px solid ${T.border}`,
+                        color: T.textMuted,
+                        width: 32,
+                        height: 32,
+                        '&:hover': { borderColor: '#c7d2fe', color: T.indigo },
+                      }}
+                    >
+                      <Refresh sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Delete conversation">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
                         if (window.confirm('Delete this conversation?')) {
-                          apiClient.delete(`/chat/conversations/${selectedConversation.id}`)
+                          apiClient
+                            .delete(`/chat/conversations/${selectedConversation.id}`)
                             .then(() => {
                               toast.success('Conversation deleted');
                               setSelectedConversation(null);
@@ -771,205 +956,279 @@ const ChatManagement = () => {
                             })
                             .catch(() => toast.error('Failed to delete conversation'));
                         }
-                      }}>
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-                </Box>
+                      }}
+                      sx={{
+                        bgcolor: T.roseSoft,
+                        color: T.rose,
+                        width: 32,
+                        height: 32,
+                        '&:hover': { bgcolor: '#fecaca' },
+                      }}
+                    >
+                      <Delete sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Box>
 
-                {/* Messages Area — ✅ FIX: minHeight:0 is what actually
-                    makes overflowY:auto scroll correctly inside a flex column */}
-                <Box sx={{
+              {/* Messages Area */}
+              <Box
+                sx={{
                   flex: 1,
                   minHeight: 0,
                   overflowY: 'auto',
                   p: 2,
-                  bgcolor: '#F8FAFC',
-                  backgroundImage: `radial-gradient(circle at 10% 10%, ${alpha(PALETTE.primary, 0.03)} 0%, transparent 50%), radial-gradient(circle at 90% 90%, ${alpha(PALETTE.user, 0.03)} 0%, transparent 50%)`,
-                  // nicer scrollbar
+                  bgcolor: '#fafbfc',
                   '&::-webkit-scrollbar': { width: 6 },
-                  '&::-webkit-scrollbar-thumb': { backgroundColor: alpha(PALETTE.primary, 0.2), borderRadius: 3 },
-                }}>
-                  {loadingMessages ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                      <CircularProgress size={32} sx={{ color: PALETTE.primary }} />
-                    </Box>
-                  ) : messages.length === 0 ? (
-                    <Box sx={{ textAlign: 'center', py: 6 }}>
-                      <Avatar sx={{ width: 64, height: 64, bgcolor: alpha(PALETTE.primary, 0.1), color: PALETTE.primary, mx: 'auto', mb: 1 }}>
-                        <Send />
-                      </Avatar>
-                      <Typography color={PALETTE.textMuted} fontWeight={600}>
-                        No messages yet
-                      </Typography>
-                      <Typography variant="caption" color={PALETTE.textFaint}>
-                        Say hello to {selectedConversation.otherParticipant?.name}!
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <>
-                      {showMore && (
-                        <Box sx={{ textAlign: 'center', mb: 2 }}>
-                          <Button size="small" onClick={() => setShowMore(false)} sx={{ color: PALETTE.primary }}>
-                            Show Older Messages
-                          </Button>
-                        </Box>
-                      )}
-                      {messages.map((message) => {
-                        const isMe = isMyMessage(message);
-                        return (
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: `${T.indigo}33`,
+                    borderRadius: 3,
+                  },
+                }}
+              >
+                {loadingMessages ? (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      height: '100%',
+                    }}
+                  >
+                    <CircularProgress size={32} sx={{ color: T.indigo }} />
+                  </Box>
+                ) : messages.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Avatar
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        bgcolor: T.indigoSoft,
+                        color: T.indigo,
+                        mx: 'auto',
+                        mb: 1,
+                      }}
+                    >
+                      <Send />
+                    </Avatar>
+                    <Typography sx={{ color: T.textMuted, fontWeight: 600 }}>
+                      No messages yet
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>
+                      Say hello to {selectedConversation.otherParticipant?.name}!
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    {messages.map((message) => {
+                      const isMe = isMyMessage(message);
+                      return (
+                        <Box
+                          key={message.id}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: isMe ? 'flex-end' : 'flex-start',
+                            mb: 1.5,
+                          }}
+                        >
                           <Box
-                            key={message.id}
                             sx={{
-                              display: 'flex',
-                              justifyContent: isMe ? 'flex-end' : 'flex-start',
-                              mb: 1.5,
+                              maxWidth: '75%',
+                              bgcolor: isMe ? T.indigo : T.surface,
+                              color: isMe ? '#fff' : T.textPrimary,
+                              p: 1.5,
+                              borderRadius: isMe
+                                ? '16px 16px 4px 16px'
+                                : '16px 16px 16px 4px',
+                              border: isMe ? 'none' : `1px solid ${T.border}`,
+                              boxShadow: isMe
+                                ? `0 4px 12px ${T.indigo}33`
+                                : '0 2px 8px rgba(0,0,0,0.04)',
+                              wordBreak: 'break-word',
                             }}
                           >
-                            <Box sx={{
-                              maxWidth: '75%',
-                              bgcolor: isMe ? alpha(PALETTE.primary, 0.9) : PALETTE.surface,
-                              color: isMe ? '#FFFFFF' : PALETTE.text,
-                              p: 1.5,
-                              borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              border: isMe ? 'none' : `1px solid ${PALETTE.border}`,
-                              boxShadow: isMe ? `0 4px 12px ${alpha(PALETTE.primary, 0.2)}` : '0 2px 8px rgba(0,0,0,0.04)',
-                              wordBreak: 'break-word',
-                            }}>
-                              <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
-                                {message.content}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'flex-end',
-                                  gap: 0.3,
-                                  color: isMe ? 'rgba(255,255,255,0.7)' : PALETTE.textFaint,
-                                  mt: 0.5,
-                                }}
-                              >
-                                {formatTime(message.createdAt)}
-                                {isMe && <DoneAll sx={{ fontSize: 13 }} />}
-                              </Typography>
-                            </Box>
+                            <Typography sx={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                              {message.content}
+                            </Typography>
+                            <Typography
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                gap: 0.3,
+                                fontSize: '0.62rem',
+                                color: isMe ? 'rgba(255,255,255,0.7)' : T.textFaint,
+                                mt: 0.5,
+                              }}
+                            >
+                              {formatTime(message.createdAt)}
+                              {isMe && <DoneAll sx={{ fontSize: 13 }} />}
+                            </Typography>
                           </Box>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </>
-                  )}
-                </Box>
+                        </Box>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </Box>
 
-                {/* Input Area – Premium */}
-                <Box sx={{
+              {/* Input Area */}
+              <Box
+                sx={{
                   p: 1.5,
-                  borderTop: `1px solid ${PALETTE.border}`,
-                  bgcolor: PALETTE.surface,
+                  borderTop: `1px solid ${T.border}`,
+                  bgcolor: T.surface,
                   display: 'flex',
                   alignItems: 'flex-end',
                   gap: 1,
                   flexShrink: 0,
-                }}>
-                  {/* Emoji Button */}
-                  <Tooltip title="Emoji">
-                    <IconButton size="small" sx={{ color: PALETTE.textMuted, '&:hover': { color: PALETTE.warning } }}>
-                      <EmojiEmotions fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {/* Attach File */}
-                  <Tooltip title="Attach File">
-                    <IconButton size="small" sx={{ color: PALETTE.textMuted, '&:hover': { color: PALETTE.primary } }}>
-                      <AttachFile fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {/* Text Input */}
-                  <Box sx={{ flex: 1 }}>
-                    <TextField
-                      fullWidth
-                      placeholder="Type your message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                      multiline
-                      maxRows={4}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '20px',
-                          bgcolor: '#F8FAFC',
-                          px: 2,
-                          py: 0.5,
-                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: PALETTE.primary },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PALETTE.primary, borderWidth: 2 },
-                          '& .MuiOutlinedInput-notchedOutline': { borderRadius: '20px' },
+                }}
+              >
+                <Tooltip title="Emoji">
+                  <IconButton
+                    size="small"
+                    sx={{
+                      color: T.textMuted,
+                      '&:hover': { color: T.amber },
+                      width: 36,
+                      height: 36,
+                    }}
+                  >
+                    <EmojiEmotions sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Attach file">
+                  <IconButton
+                    size="small"
+                    sx={{
+                      color: T.textMuted,
+                      '&:hover': { color: T.indigo },
+                      width: 36,
+                      height: 36,
+                    }}
+                  >
+                    <AttachFile sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+                <Box sx={{ flex: 1 }}>
+                  <TextField
+                    fullWidth
+                    placeholder="Type your message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' &&
+                      !e.shiftKey &&
+                      (e.preventDefault(), handleSendMessage())
+                    }
+                    multiline
+                    maxRows={4}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 999,
+                        bgcolor: T.surfaceSoft,
+                        px: 2,
+                        py: 0.5,
+                        '& fieldset': { borderColor: T.border },
+                        '&:hover fieldset': { borderColor: '#c7d2fe' },
+                        '&.Mui-focused fieldset': {
+                          borderColor: T.indigo,
+                          borderWidth: 1.5,
                         },
-                        '& .MuiInputBase-input': {
-                          fontSize: '0.875rem',
-                          py: 1,
-                          lineHeight: 1.4,
-                        },
-                      }}
-                    />
-                  </Box>
-                  {/* Send Button */}
-                  <Tooltip title={newMessage.trim() ? 'Send Message' : 'Type a message'}>
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.85rem',
+                        py: 1,
+                        lineHeight: 1.4,
+                      },
+                    }}
+                  />
+                </Box>
+                <Tooltip title={newMessage.trim() ? 'Send' : 'Type a message'}>
+                  <span>
                     <IconButton
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim()}
                       sx={{
                         width: 44,
                         height: 44,
-                        bgcolor: newMessage.trim() ? PALETTE.primary : alpha(PALETTE.primary, 0.3),
-                        color: '#fff',
-                        '&:hover': { bgcolor: PALETTE.primaryDark, transform: 'scale(1.05)' },
-                        '&:disabled': { bgcolor: alpha(PALETTE.primary, 0.3) },
-                        transition: 'all 0.2s ease',
+                        bgcolor: newMessage.trim() ? T.indigo : '#e2e8f0',
+                        color: newMessage.trim() ? '#fff' : T.textFaint,
+                        '&:hover': {
+                          bgcolor: newMessage.trim() ? '#4f46e5' : '#e2e8f0',
+                        },
+                        '&:disabled': { bgcolor: '#e2e8f0', color: T.textFaint },
                         borderRadius: '50%',
-                        boxShadow: newMessage.trim() ? `0 4px 12px ${alpha(PALETTE.primary, 0.3)}` : 'none',
+                        boxShadow: newMessage.trim() ? `0 4px 12px ${T.indigo}33` : 'none',
                       }}
                     >
-                      <Send fontSize="small" />
+                      <Send sx={{ fontSize: 18 }} />
                     </IconButton>
-                  </Tooltip>
-                </Box>
-              </>
-            ) : (
-              <Box sx={{
+                  </span>
+                </Tooltip>
+              </Box>
+            </>
+          ) : (
+            <Box
+              sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 height: '100%',
                 p: 4,
-              }}>
-                <Avatar sx={{ width: 80, height: 80, bgcolor: alpha(PALETTE.primary, 0.1), color: PALETTE.primary, mb: 2 }}>
-                  <Send />
-                </Avatar>
-                <Typography variant="h6" color={PALETTE.textMuted} fontWeight={700}>
-                  Select a conversation
-                </Typography>
-                <Typography variant="body2" color={PALETTE.textFaint} sx={{ mb: 3, textAlign: 'center', maxWidth: 300 }}>
-                  Choose a chat from the left to view messages and reply.
-                </Typography>
-                <Button variant="contained" startIcon={<Add />} onClick={() => setSearchDialogOpen(true)} sx={{
-                  bgcolor: PALETTE.primary,
-                  '&:hover': { bgcolor: PALETTE.primaryDark },
-                  borderRadius: '12px',
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 80,
+                  height: 80,
+                  bgcolor: T.indigoSoft,
+                  color: T.indigo,
+                  mb: 2,
+                }}
+              >
+                <Send sx={{ fontSize: 36 }} />
+              </Avatar>
+              <Typography
+                sx={{ fontSize: '1rem', color: T.textMuted, fontWeight: 700 }}
+              >
+                Select a conversation
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.8rem',
+                  color: T.textFaint,
+                  mb: 3,
+                  textAlign: 'center',
+                  maxWidth: 300,
+                }}
+              >
+                Choose a chat from the left to view messages and reply.
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Add sx={{ fontSize: 16 }} />}
+                onClick={() => setSearchDialogOpen(true)}
+                sx={{
+                  bgcolor: T.indigo,
+                  '&:hover': { bgcolor: '#4f46e5' },
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 700,
                   px: 3,
                   py: 1,
-                  boxShadow: `0 4px 12px ${alpha(PALETTE.primary, 0.3)}`,
-                }}>
-                  Start New Chat
-                </Button>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+                  boxShadow: 'none',
+                }}
+              >
+                Start New Chat
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Box>
 
-      {/* Search Users Dialog */}
       <SearchUsersDialog
         open={searchDialogOpen}
         onClose={() => setSearchDialogOpen(false)}

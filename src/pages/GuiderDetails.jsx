@@ -3,31 +3,206 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchGuiderById, clearSelected } from '../redux/slices/guiderSlice';
-import { FaArrowLeft, FaFilePdf } from 'react-icons/fa';
-import { Avatar, Box, Typography, Paper, Grid, Chip, Button, Stack, Divider, CircularProgress, Dialog, DialogContent } from '@mui/material';
-import { Star } from '@mui/icons-material';
+import {
+  FaArrowLeft, FaFilePdf, FaEnvelope, FaPhone, FaStar,
+  FaBriefcase, FaMapMarkerAlt, FaLanguage, FaCamera, FaBuilding,
+} from 'react-icons/fa';
+import {
+  Avatar, Box, Typography, Paper, Chip, Button, Stack,
+  Divider, CircularProgress, Dialog, DialogContent,
+} from '@mui/material';
+import {
+  Close as CloseIcon,
+  CheckCircle as VerifiedIcon,
+} from '@mui/icons-material';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import apiClient from '../api/axios';
+import { getImageUrl, getFallbackAvatar } from '../utils/imageFallback';
 
-const getImageUrl = (path) => {
-  if (!path) return null;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://local-guider-backend.onrender.com/api/v1';
-  const baseUrl = API_BASE_URL.replace('/api/v1', '');
-  return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  violetSoft: '#ede9fe',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  skySoft: '#e0f2fe',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
-const getFullName = (guider) => {
-  if (guider.fullName) return guider.fullName;
-  if (guider.firstName && guider.lastName) return `${guider.firstName} ${guider.lastName}`;
-  if (guider.user?.firstName && guider.user?.lastName) return `${guider.user.firstName} ${guider.user.lastName}`;
-  if (guider.name) return guider.name;
+const getFullName = (g) => {
+  if (g.fullName) return g.fullName;
+  if (g.firstName && g.lastName) return `${g.firstName} ${g.lastName}`;
+  if (g.user?.firstName && g.user?.lastName) return `${g.user.firstName} ${g.user.lastName}`;
+  if (g.name) return g.name;
   return '—';
 };
 
-const getEmail = (guider) => guider.user?.email || guider.email || guider.User?.email || '—';
-const getPhone = (guider) => guider.user?.phone || guider.phone || guider.User?.phone || '—';
+const getEmail = (g) => g.user?.email || g.email || g.User?.email || '—';
+const getPhone = (g) => g.user?.phone || g.phone || g.User?.phone || '—';
+
+// ═══════════════════════════════════════════════════════════════
+// DETAIL ITEM
+// ═══════════════════════════════════════════════════════════════
+const DetailItem = ({ icon, label, value, accent = T.violet }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1.5,
+      p: 1.75,
+      borderRadius: 2,
+      bgcolor: T.surface,
+      border: `1px solid ${T.border}`,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        borderColor: T.borderStrong,
+        transform: 'translateY(-1px)',
+        boxShadow: '0 4px 12px -8px rgba(15,23,42,0.1)',
+      },
+    }}
+  >
+    <Box
+      sx={{
+        width: 38,
+        height: 38,
+        borderRadius: 2,
+        bgcolor: `${accent}12`,
+        color: accent,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </Box>
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <Typography
+        sx={{
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          color: T.textFaint,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          mb: 0.2,
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          color: T.textPrimary,
+          lineHeight: 1.3,
+        }}
+        noWrap
+      >
+        {value || 'N/A'}
+      </Typography>
+    </Box>
+  </Paper>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION HEADER
+// ═══════════════════════════════════════════════════════════════
+const SectionHeader = ({ title, subtitle, accent = T.violet }) => (
+  <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+    <Box sx={{ width: 4, height: 22, borderRadius: 1, bgcolor: accent }} />
+    <Box>
+      <Typography
+        sx={{
+          fontFamily: T.fontDisplay,
+          fontWeight: 700,
+          fontSize: '0.95rem',
+          color: T.textPrimary,
+        }}
+      >
+        {title}
+      </Typography>
+      {subtitle && (
+        <Typography sx={{ fontSize: '0.7rem', color: T.textFaint, mt: 0.2, fontWeight: 500 }}>
+          {subtitle}
+        </Typography>
+      )}
+    </Box>
+  </Stack>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// DOCUMENT THUMB
+// ═══════════════════════════════════════════════════════════════
+const DocThumb = ({ src, label, onClick }) => (
+  <Box
+    onClick={onClick}
+    sx={{
+      position: 'relative',
+      borderRadius: 2,
+      overflow: 'hidden',
+      cursor: 'pointer',
+      border: `1px solid ${T.border}`,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        borderColor: T.violet,
+        transform: 'translateY(-2px)',
+        boxShadow: `0 8px 20px -8px ${T.violet}55`,
+      },
+    }}
+  >
+    <Box
+      component="img"
+      src={src}
+      alt={label}
+      sx={{
+        width: 140,
+        height: 140,
+        objectFit: 'cover',
+        display: 'block',
+      }}
+    />
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        p: 0.75,
+        background: 'linear-gradient(to top, rgba(11,18,32,0.9), transparent)',
+      }}
+    >
+      <Typography
+        sx={{
+          fontSize: '0.65rem',
+          fontWeight: 700,
+          color: '#fff',
+          textAlign: 'center',
+        }}
+      >
+        {label}
+      </Typography>
+    </Box>
+  </Box>
+);
 
 const GuiderDetails = () => {
   const { id } = useParams();
@@ -44,12 +219,10 @@ const GuiderDetails = () => {
     return () => dispatch(clearSelected());
   }, [dispatch, id]);
 
-  // ✅ Fetch place names from placeIds
   useEffect(() => {
     const fetchPlaceNames = async () => {
-      const guider = selectedItem || items.find(item => item.id === id);
+      const guider = selectedItem || items.find((item) => item.id === id);
       if (!guider?.placeIds || guider.placeIds.length === 0) return;
-
       try {
         const names = await Promise.all(
           guider.placeIds.map(async (placeId) => {
@@ -69,56 +242,65 @@ const GuiderDetails = () => {
     fetchPlaceNames();
   }, [selectedItem, items, id]);
 
-  if (loading) return <div className="flex justify-center py-10">Loading...</div>;
+  if (loading)
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress size={32} />
+      </Box>
+    );
 
   let guider = selectedItem;
   if (!guider) {
-    const fallback = items.find(item => item.id === id);
+    const fallback = items.find((item) => item.id === id);
     if (fallback) guider = fallback;
   }
 
-  if (!guider) return <div className="p-4 text-center text-red-500">Guider not found</div>;
+  if (!guider)
+    return (
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
+        <Typography sx={{ color: T.rose, fontWeight: 600 }}>
+          Guider not found
+        </Typography>
+      </Box>
+    );
 
   const fullName = getFullName(guider);
   const email = getEmail(guider);
   const phone = getPhone(guider);
+  const fallback = getFallbackAvatar(fullName);
 
   const imageUrls = {
-    profilePhotoUrl: getImageUrl(guider.profilePhotoUrl || guider.profileImage),
+    profilePhotoUrl: getImageUrl(guider.profilePhotoUrl || guider.profileImage, fullName),
     selfieUrl: getImageUrl(guider.selfieUrl),
     idFrontUrl: getImageUrl(guider.idFrontUrl),
     idBackUrl: getImageUrl(guider.idBackUrl),
   };
 
-  const imagePreviewStyle = { width: 150, height: 150, objectFit: 'cover', borderRadius: 8, cursor: 'pointer' };
-
-  // ✅ PDF Download
   const downloadAsPDF = async () => {
     if (!downloadRef.current) return;
     setDownloading(true);
     try {
-      const canvas = await html2canvas(downloadRef.current, { scale: 3, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await html2canvas(downloadRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      // Agar image lambi hai to multiple pages me split karo
       let heightLeft = imgHeight;
       let position = 0;
-      
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
-      
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pdfHeight;
       }
-      
       pdf.save(`Guider-Details-${fullName}.pdf`);
     } catch (e) {
       console.error('PDF Error:', e);
@@ -129,212 +311,489 @@ const GuiderDetails = () => {
   };
 
   return (
-    <div className="p-4">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-indigo-600 mb-4 hover:underline">
-        <FaArrowLeft /> Back
-      </button>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1100, mx: 'auto' }}>
+      {/* ═══════ Back button ═══════ */}
+      <Button
+        onClick={() => navigate(-1)}
+        startIcon={<FaArrowLeft size={12} />}
+        sx={{
+          mb: 3,
+          textTransform: 'none',
+          fontWeight: 700,
+          fontSize: '0.78rem',
+          color: T.textMuted,
+          px: 1.5,
+          py: 0.75,
+          borderRadius: 2,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          '&:hover': {
+            bgcolor: T.surfaceSoft,
+            borderColor: T.borderStrong,
+            color: T.textPrimary,
+          },
+        }}
+      >
+        Back
+      </Button>
 
-      <Paper elevation={3} className="p-6 rounded-xl">
-        <Box display="flex" alignItems="center" gap={3} mb={4}>
-          <Avatar src={imageUrls.profilePhotoUrl} alt={fullName} sx={{ width: 100, height: 100 }} />
-          <Box>
-            <Typography variant="h4" fontWeight="bold">{fullName}</Typography>
-            <Typography variant="body2" color="textSecondary">{email}</Typography>
-            <Typography variant="body2" color="textSecondary">Phone: {phone}</Typography>
-            <Chip label={guider.isActive ? 'Active' : 'Inactive'} color={guider.isActive ? 'success' : 'error'} size="small" sx={{ mt: 1 }} />
+      {/* ═══════ Header Card ═══════ */}
+      <Paper
+        elevation={0}
+        sx={{
+          position: 'relative',
+          p: 3,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: `linear-gradient(135deg, ${T.violet}, #a78bfa)`,
+          },
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={3}
+          alignItems={{ md: 'center' }}
+        >
+          <Box sx={{ position: 'relative' }}>
+            <Avatar
+              src={imageUrls.profilePhotoUrl}
+              alt={fullName}
+              sx={{
+                width: 96,
+                height: 96,
+                border: '4px solid #fff',
+                background: `linear-gradient(135deg, ${T.violet}, #a78bfa)`,
+                color: '#fff',
+                fontSize: 32,
+                fontWeight: 700,
+                boxShadow: `0 8px 20px -6px ${T.violet}55`,
+              }}
+              slotProps={{
+                img: {
+                  onError: (e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = fallback;
+                  },
+                },
+              }}
+            >
+              {(fullName[0] || 'G').toUpperCase()}
+            </Avatar>
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 2,
+                right: 2,
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                bgcolor: guider.isActive ? T.emerald : T.rose,
+                border: '3px solid #fff',
+              }}
+            />
+          </Box>
+
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: T.fontDisplay,
+                fontWeight: 800,
+                fontSize: { xs: '1.35rem', md: '1.5rem' },
+                color: T.textPrimary,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+                mb: 0.5,
+              }}
+            >
+              {fullName}
+            </Typography>
+
+            <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={0.75}>
+                <FaEnvelope size={12} style={{ color: T.textFaint }} />
+                <Typography sx={{ fontSize: '0.8rem', color: T.textMuted, fontWeight: 500 }}>
+                  {email}
+                </Typography>
+              </Stack>
+              <Stack direction="row" alignItems="center" spacing={0.75}>
+                <FaPhone size={12} style={{ color: T.textFaint }} />
+                <Typography sx={{ fontSize: '0.8rem', color: T.textMuted, fontWeight: 500 }}>
+                  {phone}
+                </Typography>
+              </Stack>
+            </Stack>
+
+            <Stack direction="row" spacing={1} sx={{ mt: 1.75, flexWrap: 'wrap', gap: 0.75 }}>
+              <Chip
+                label="GUIDER"
+                size="small"
+                sx={{
+                  bgcolor: T.violetSoft,
+                  color: T.violet,
+                  fontWeight: 700,
+                  fontSize: '0.65rem',
+                  height: 22,
+                  borderRadius: 999,
+                }}
+              />
+              <Chip
+                label={guider.isActive ? 'Active' : 'Inactive'}
+                size="small"
+                sx={{
+                  bgcolor: guider.isActive ? T.emeraldSoft : T.roseSoft,
+                  color: guider.isActive ? '#059669' : '#be123c',
+                  fontWeight: 700,
+                  fontSize: '0.65rem',
+                  height: 22,
+                  borderRadius: 999,
+                }}
+              />
+              {guider.rating > 0 && (
+                <Chip
+                  icon={<FaStar size={10} />}
+                  label={`${guider.rating} rating`}
+                  size="small"
+                  sx={{
+                    bgcolor: T.amberSoft,
+                    color: '#b45309',
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    height: 22,
+                    borderRadius: 999,
+                    '& .MuiChip-icon': { color: '#b45309', fontSize: 10 },
+                  }}
+                />
+              )}
+            </Stack>
+          </Box>
+
+          <Button
+            onClick={downloadAsPDF}
+            disabled={downloading}
+            startIcon={
+              downloading ? (
+                <CircularProgress size={14} sx={{ color: '#fff' }} />
+              ) : (
+                <FaFilePdf size={12} />
+              )
+            }
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              color: '#fff',
+              bgcolor: T.violet,
+              px: 2,
+              py: 1,
+              borderRadius: 2,
+              whiteSpace: 'nowrap',
+              alignSelf: { xs: 'flex-start', md: 'center' },
+              '&:hover': { bgcolor: '#7c3aed' },
+              '&.Mui-disabled': { bgcolor: T.violet, opacity: 0.6, color: '#fff' },
+            }}
+          >
+            {downloading ? 'Downloading...' : 'Download PDF'}
+          </Button>
+        </Stack>
+      </Paper>
+
+      {/* ═══════ About ═══════ */}
+      {(guider.about || guider.bio) && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            mb: 2.5,
+          }}
+        >
+          <SectionHeader title="About" subtitle="Profile summary" accent={T.violet} />
+          <Typography
+            sx={{
+              fontSize: '0.85rem',
+              color: T.textPrimary,
+              lineHeight: 1.7,
+              fontWeight: 500,
+            }}
+          >
+            {guider.about || guider.bio}
+          </Typography>
+        </Paper>
+      )}
+
+      {/* ═══════ Professional info ═══════ */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
+        }}
+      >
+        <SectionHeader title="Professional Information" subtitle="Experience & expertise" accent={T.violet} />
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' },
+            gap: 2,
+          }}
+        >
+          <DetailItem
+            icon={<FaBriefcase size={14} />}
+            label="Experience"
+            value={`${guider.experience || 0} years`}
+            accent={T.violet}
+          />
+          <DetailItem
+            icon={<FaStar size={14} />}
+            label="Rating"
+            value={guider.rating || 0}
+            accent={T.amber}
+          />
+          <DetailItem
+            icon={<FaBuilding size={14} />}
+            label="Company"
+            value={guider.companyName}
+            accent={T.indigo}
+          />
+          <DetailItem
+            icon={<FaMapMarkerAlt size={14} />}
+            label="Location"
+            value={guider.location || guider.city}
+            accent={T.rose}
+          />
+          <DetailItem
+            icon={<FaLanguage size={14} />}
+            label="Languages"
+            value={guider.languages?.join(', ')}
+            accent={T.sky}
+          />
+          <DetailItem
+            icon={<FaCamera size={14} />}
+            label="Speciality"
+            value={guider.speciality || guider.cameraDetails}
+            accent={T.emerald}
+          />
+        </Box>
+      </Paper>
+
+      {/* ═══════ Documents ═══════ */}
+      {(imageUrls.selfieUrl || imageUrls.idFrontUrl || imageUrls.idBackUrl || imageUrls.profilePhotoUrl) && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            mb: 2.5,
+          }}
+        >
+          <SectionHeader
+            title="Documents"
+            subtitle="Verification images (click to preview)"
+            accent={T.sky}
+          />
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }}>
+            {imageUrls.profilePhotoUrl && (
+              <DocThumb src={imageUrls.profilePhotoUrl} label="Profile" onClick={() => setPreviewImage(imageUrls.profilePhotoUrl)} />
+            )}
+            {imageUrls.selfieUrl && (
+              <DocThumb src={imageUrls.selfieUrl} label="Selfie" onClick={() => setPreviewImage(imageUrls.selfieUrl)} />
+            )}
+            {imageUrls.idFrontUrl && (
+              <DocThumb src={imageUrls.idFrontUrl} label="ID Front" onClick={() => setPreviewImage(imageUrls.idFrontUrl)} />
+            )}
+            {imageUrls.idBackUrl && (
+              <DocThumb src={imageUrls.idBackUrl} label="ID Back" onClick={() => setPreviewImage(imageUrls.idBackUrl)} />
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {/* ═══════ Places ═══════ */}
+      {placeNames.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+          }}
+        >
+          <SectionHeader
+            title="Places"
+            subtitle={`${placeNames.length} location${placeNames.length > 1 ? 's' : ''} covered`}
+            accent={T.emerald}
+          />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            {placeNames.map((place, idx) => (
+              <Chip
+                key={idx}
+                label={place}
+                sx={{
+                  bgcolor: T.emeraldSoft,
+                  color: '#047857',
+                  fontWeight: 700,
+                  fontSize: '0.72rem',
+                  height: 26,
+                  borderRadius: 999,
+                }}
+              />
+            ))}
+          </Stack>
+        </Paper>
+      )}
+
+      {/* ═══════ Hidden PDF layout ═══════ */}
+      <Box sx={{ position: 'absolute', left: -9999, top: 0 }}>
+        <Box ref={downloadRef}>
+          <Box
+            sx={{
+              width: '794px',
+              minHeight: '1123px',
+              p: '40px',
+              fontFamily: 'Arial, sans-serif',
+              bgcolor: '#fff',
+              color: '#000',
+            }}
+          >
+            <Box sx={{ textAlign: 'center', borderBottom: '4px solid #8b5cf6', pb: 2.5, mb: 2.5 }}>
+              <Typography sx={{ color: '#8b5cf6', fontSize: '32px', m: 0, fontWeight: 700 }}>
+                Local Guider
+              </Typography>
+              <Typography sx={{ color: '#666', fontSize: '18px', mt: 1, fontWeight: 500 }}>
+                Guider Profile
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5, pb: 2.5, borderBottom: '2px solid #eee' }}>
+              {imageUrls.profilePhotoUrl && (
+                <Box
+                  component="img"
+                  src={imageUrls.profilePhotoUrl}
+                  alt="Profile"
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: '50%',
+                    mr: 2.5,
+                    objectFit: 'cover',
+                    border: '4px solid #8b5cf6',
+                  }}
+                />
+              )}
+              <Box>
+                <Typography sx={{ fontSize: '28px', fontWeight: 700, mb: 0.5 }}>
+                  {fullName}
+                </Typography>
+                <Typography sx={{ fontSize: '14px', my: 0.5 }}>
+                  <strong>Company:</strong> {guider.companyName || 'N/A'}
+                </Typography>
+                <Typography sx={{ fontSize: '14px', my: 0.5 }}>
+                  <strong>Location:</strong> {guider.location || guider.city || 'N/A'}
+                </Typography>
+                <Typography sx={{ fontSize: '14px', my: 0.5 }}>
+                  <strong>Status:</strong> {guider.isActive ? 'Active' : 'Inactive'}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ mb: 2.5 }}>
+              <Typography sx={{ color: '#8b5cf6', borderBottom: '2px solid #8b5cf6', pb: 0.5, fontSize: '20px', fontWeight: 700 }}>
+                Contact Information
+              </Typography>
+              <Typography sx={{ fontSize: '14px', my: 1 }}>
+                <strong>Email:</strong> {email}
+              </Typography>
+              <Typography sx={{ fontSize: '14px', my: 1 }}>
+                <strong>Phone:</strong> {phone}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 2.5 }}>
+              <Typography sx={{ color: '#8b5cf6', borderBottom: '2px solid #8b5cf6', pb: 0.5, fontSize: '20px', fontWeight: 700 }}>
+                Professional Information
+              </Typography>
+              <Typography sx={{ fontSize: '14px', my: 1 }}>
+                <strong>Experience:</strong> {guider.experience || 0} years
+              </Typography>
+              <Typography sx={{ fontSize: '14px', my: 1 }}>
+                <strong>Rating:</strong> {guider.rating || 0}
+              </Typography>
+              <Typography sx={{ fontSize: '14px', my: 1 }}>
+                <strong>Languages:</strong> {guider.languages?.join(', ') || 'N/A'}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 2.5 }}>
+              <Typography sx={{ color: '#8b5cf6', borderBottom: '2px solid #8b5cf6', pb: 0.5, fontSize: '20px', fontWeight: 700 }}>
+                About
+              </Typography>
+              <Typography sx={{ fontSize: '14px', lineHeight: 1.6 }}>
+                {guider.about || guider.bio || 'No bio provided'}
+              </Typography>
+            </Box>
+
+            <Box sx={{ textAlign: 'center', borderTop: '2px solid #8b5cf6', pt: 1.5, mt: 2.5 }}>
+              <Typography sx={{ color: '#888', fontSize: '12px' }}>
+                © 2026 Local Guider. All rights reserved.
+              </Typography>
+            </Box>
           </Box>
         </Box>
+      </Box>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="subtitle2" color="textSecondary">About</Typography>
-            <Typography variant="body1">{guider.about || guider.bio || 'No bio provided'}</Typography>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Typography variant="subtitle2" color="textSecondary">Experience</Typography>
-            <Typography variant="body1">{guider.experience || 0} years</Typography>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Typography variant="subtitle2" color="textSecondary">Rating</Typography>
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Star sx={{ color: '#F59E0B' }} />
-              <Typography variant="body1">{guider.rating || 0}</Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Typography variant="subtitle2" color="textSecondary">Company</Typography>
-            <Typography variant="body1">{guider.companyName || 'N/A'}</Typography>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Typography variant="subtitle2" color="textSecondary">Location</Typography>
-            <Typography variant="body1">{guider.location || guider.city || 'N/A'}</Typography>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Typography variant="subtitle2" color="textSecondary">Languages</Typography>
-            <Typography variant="body1">{guider.languages?.join(', ') || 'N/A'}</Typography>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* Documents Section */}
-        <Typography variant="h6" gutterBottom>Documents</Typography>
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-          {imageUrls.profilePhotoUrl && (
-            <Box onClick={() => setPreviewImage(imageUrls.profilePhotoUrl)} sx={{ textAlign: 'center' }}>
-              <img src={imageUrls.profilePhotoUrl} alt="Profile" style={imagePreviewStyle} />
-              <Typography variant="caption">Profile Photo</Typography>
-            </Box>
-          )}
-          {imageUrls.selfieUrl && (
-            <Box onClick={() => setPreviewImage(imageUrls.selfieUrl)} sx={{ textAlign: 'center' }}>
-              <img src={imageUrls.selfieUrl} alt="Selfie" style={imagePreviewStyle} />
-              <Typography variant="caption">Selfie</Typography>
-            </Box>
-          )}
-          {imageUrls.idFrontUrl && (
-            <Box onClick={() => setPreviewImage(imageUrls.idFrontUrl)} sx={{ textAlign: 'center' }}>
-              <img src={imageUrls.idFrontUrl} alt="ID Front" style={imagePreviewStyle} />
-              <Typography variant="caption">ID Front</Typography>
-            </Box>
-          )}
-          {imageUrls.idBackUrl && (
-            <Box onClick={() => setPreviewImage(imageUrls.idBackUrl)} sx={{ textAlign: 'center' }}>
-              <img src={imageUrls.idBackUrl} alt="ID Back" style={imagePreviewStyle} />
-              <Typography variant="caption">ID Back</Typography>
-            </Box>
-          )}
-        </Stack>
-
-        {/* Places */}
-        {placeNames.length > 0 && (
-          <>
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Places</Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {placeNames.map((place, idx) => (
-                <Chip key={idx} label={place} variant="outlined" color="primary" />
-              ))}
-            </Stack>
-          </>
-        )}
-
-        {/* Download PDF Button */}
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <FaFilePdf />}
-          onClick={downloadAsPDF}
-          disabled={downloading}
-          sx={{ mt: 3, bgcolor: '#1E3A6E', '&:hover': { bgcolor: '#0B1A30' } }}
-        >
-          {downloading ? 'Downloading...' : 'Download PDF'}
-        </Button>
-
-        {/* Hidden PDF Design */}
-        <div style={{ position: 'absolute', left: -9999, top: 0 }}>
-          <div ref={downloadRef}>
-            <div style={{ width: '794px', minHeight: '1123px', padding: '40px', fontFamily: 'Arial, sans-serif', background: '#ffffff', color: '#000000' }}>
-              {/* Header */}
-              <div style={{ textAlign: 'center', borderBottom: '4px solid #1E3A6E', paddingBottom: '20px', marginBottom: '20px' }}>
-                <h1 style={{ color: '#1E3A6E', fontSize: '32px', margin: '0' }}>Local Guider</h1>
-                <h2 style={{ color: '#666', fontSize: '18px', margin: '10px 0 0' }}>Guider Profile</h2>
-              </div>
-
-              {/* Profile Section */}
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '20px' }}>
-                {imageUrls.profilePhotoUrl && (
-                  <img src={imageUrls.profilePhotoUrl} alt="Profile" style={{ width: '120px', height: '120px', borderRadius: '50%', marginRight: '20px', objectFit: 'cover', border: '4px solid #1E3A6E' }} />
-                )}
-                <div>
-                  <h2 style={{ margin: '0 0 5px', fontSize: '28px' }}>{fullName}</h2>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}><strong>Company:</strong> {guider.companyName || 'N/A'}</p>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}><strong>Location:</strong> {guider.location || guider.city || 'N/A'}</p>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}><strong>Status:</strong> {guider.isActive ? 'Active' : 'Inactive'}</p>
-                </div>
-              </div>
-
-              {/* Contact Info */}
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ color: '#1E3A6E', borderBottom: '2px solid #1E3A6E', paddingBottom: '5px', fontSize: '20px' }}>Contact Information</h3>
-                <p style={{ margin: '8px 0', fontSize: '14px' }}><strong>Email:</strong> {email}</p>
-                <p style={{ margin: '8px 0', fontSize: '14px' }}><strong>Phone:</strong> {phone}</p>
-              </div>
-
-              {/* Professional Info */}
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ color: '#1E3A6E', borderBottom: '2px solid #1E3A6E', paddingBottom: '5px', fontSize: '20px' }}>Professional Information</h3>
-                <p style={{ margin: '8px 0', fontSize: '14px' }}><strong>Experience:</strong> {guider.experience || 0} years</p>
-                <p style={{ margin: '8px 0', fontSize: '14px' }}><strong>Rating:</strong> {guider.rating || 0}</p>
-                <p style={{ margin: '8px 0', fontSize: '14px' }}><strong>Languages:</strong> {guider.languages?.join(', ') || 'N/A'}</p>
-              </div>
-
-              {/* Bio */}
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ color: '#1E3A6E', borderBottom: '2px solid #1E3A6E', paddingBottom: '5px', fontSize: '20px' }}>About</h3>
-                <p style={{ fontSize: '14px', lineHeight: '1.6' }}>{guider.about || guider.bio || 'No bio provided'}</p>
-              </div>
-
-              {/* Documents */}
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ color: '#1E3A6E', borderBottom: '2px solid #1E3A6E', paddingBottom: '5px', fontSize: '20px' }}>Documents</h3>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {imageUrls.profilePhotoUrl && (
-                    <div style={{ textAlign: 'center' }}>
-                      <img src={imageUrls.profilePhotoUrl} alt="Profile" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }} />
-                      <p style={{ fontSize: '12px', margin: '5px 0' }}>Profile</p>
-                    </div>
-                  )}
-                  {imageUrls.selfieUrl && (
-                    <div style={{ textAlign: 'center' }}>
-                      <img src={imageUrls.selfieUrl} alt="Selfie" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }} />
-                      <p style={{ fontSize: '12px', margin: '5px 0' }}>Selfie</p>
-                    </div>
-                  )}
-                  {imageUrls.idFrontUrl && (
-                    <div style={{ textAlign: 'center' }}>
-                      <img src={imageUrls.idFrontUrl} alt="ID Front" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }} />
-                      <p style={{ fontSize: '12px', margin: '5px 0' }}>ID Front</p>
-                    </div>
-                  )}
-                  {imageUrls.idBackUrl && (
-                    <div style={{ textAlign: 'center' }}>
-                      <img src={imageUrls.idBackUrl} alt="ID Back" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }} />
-                      <p style={{ fontSize: '12px', margin: '5px 0' }}>ID Back</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Places */}
-              {placeNames.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <h3 style={{ color: '#1E3A6E', borderBottom: '2px solid #1E3A6E', paddingBottom: '5px', fontSize: '20px' }}>Places</h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {placeNames.map((place, idx) => (
-                      <span key={idx} style={{ background: '#F0F4FF', color: '#1E3A6E', padding: '6px 12px', borderRadius: '15px', fontSize: '13px', fontWeight: '600' }}>
-                        {place}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Footer */}
-              <div style={{ textAlign: 'center', borderTop: '2px solid #1E3A6E', paddingTop: '10px', marginTop: '20px' }}>
-                <p style={{ color: '#888', fontSize: '12px' }}>© 2026 Local Guider. All rights reserved.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Image Preview Dialog */}
-        <Dialog open={!!previewImage} onClose={() => setPreviewImage(null)} maxWidth="md">
-          <DialogContent>
-            <img src={previewImage} alt="Preview" style={{ width: '100%', maxHeight: 600, objectFit: 'contain' }} />
-          </DialogContent>
-        </Dialog>
-      </Paper>
-    </div>
+      {/* ═══════ Image preview ═══════ */}
+      <Dialog
+        open={!!previewImage}
+        onClose={() => setPreviewImage(null)}
+        maxWidth="md"
+        PaperProps={{ sx: { borderRadius: T.radius } }}
+      >
+        <Box sx={{ position: 'relative', p: 1 }}>
+          <Button
+            onClick={() => setPreviewImage(null)}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              minWidth: 32,
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              color: '#fff',
+              p: 0,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 18 }} />
+          </Button>
+          <Box
+            component="img"
+            src={previewImage}
+            alt="Preview"
+            sx={{ width: '100%', maxHeight: 600, objectFit: 'contain', display: 'block', borderRadius: 2 }}
+          />
+        </Box>
+      </Dialog>
+    </Box>
   );
 };
 

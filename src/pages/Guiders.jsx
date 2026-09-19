@@ -5,10 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Box, Paper, Typography, TextField, Button, IconButton, Chip, Avatar,
-  Stack, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
-  useMediaQuery, useTheme, Card, CardContent, FormControl, Select, MenuItem, InputLabel,
+  Stack, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent,
+  DialogActions, useMediaQuery, useTheme, FormControl, Select, MenuItem,
+  InputLabel, CircularProgress, Divider,
 } from '@mui/material';
-import { Search, Delete, Visibility, Star, Block, PhotoLibrary } from '@mui/icons-material';
+import {
+  Search, Delete, Visibility, Star, Block, PhotoLibrary,
+  Refresh, PersonAdd,
+} from '@mui/icons-material';
 import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
 import { fetchGuiders, updateGuider, deleteGuider, setPage, setLimit } from '../redux/slices/guiderSlice';
 import Loader from '../components/Loader';
@@ -16,34 +20,45 @@ import PanelHeader from '../components/PanelHeader';
 import ExportButtons from '../components/ExportButtons';
 import GalleryManager from '../components/GalleryManager';
 import { removeGuiderGalleryImage } from '../api/admin';
-import { COLORS } from '../theme/dashboardTheme';
 import apiClient from '../api/axios';
+import { getImageUrl, getFallbackAvatar } from '../utils/imageFallback';
 
-const getImageUrl = (path) => {
-  if (!path) return 'https://via.placeholder.com/40';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://local-guider-backend.onrender.com/api/v1';
-  const baseUrl = API_BASE_URL.replace('/api/v1', '');
-  return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  bgRowHover: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  violetSoft: '#ede9fe',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  radius: 3,
 };
 
-const getFullName = (guider) => {
-  if (guider.fullName) return guider.fullName;
-  if (guider.firstName && guider.lastName) return `${guider.firstName} ${guider.lastName}`;
-  if (guider.user?.firstName && guider.user?.lastName) return `${guider.user.firstName} ${guider.user.lastName}`;
-  if (guider.name) return guider.name;
+const getFullName = (g) => {
+  if (g.fullName) return g.fullName;
+  if (g.firstName && g.lastName) return `${g.firstName} ${g.lastName}`;
+  if (g.user?.firstName && g.user?.lastName) return `${g.user.firstName} ${g.user.lastName}`;
+  if (g.name) return g.name;
   return '—';
 };
 
-const getEmail = (guider) => {
-  const email = guider.user?.email || guider.email || guider.User?.email || '';
-  return email || '—';
-};
-
-const getPhone = (guider) => {
-  const phone = guider.user?.phone || guider.phone || guider.User?.phone || '';
-  return phone || '—';
-};
+const getEmail = (g) => g.user?.email || g.email || g.User?.email || '—';
+const getPhone = (g) => g.user?.phone || g.phone || g.User?.phone || '—';
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -57,12 +72,14 @@ const Guiders = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { items, total, loading, pagination } = useSelector((state) => state.guiders);
+  const { items, loading, pagination } = useSelector((s) => s.guiders);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [blockConfirm, setBlockConfirm] = useState(null);
   const [galleryDialog, setGalleryDialog] = useState({ open: false, guider: null });
+  const [processing, setProcessing] = useState(false);
 
   const exportHeaders = [
     { key: 'profilePhotoUrl', label: 'Photo', isImage: true },
@@ -76,23 +93,30 @@ const Guiders = () => {
     { key: 'isActive', label: 'Status' },
   ];
 
-  useEffect(() => {
-    const params = {
+  const fetchList = () => {
+    dispatch(fetchGuiders({
       page: pagination.page,
       limit: pagination.limit,
       search: searchTerm || undefined,
       status: statusFilter !== 'ALL' ? statusFilter : undefined,
-    };
-    dispatch(fetchGuiders(params));
+    }));
+  };
+
+  useEffect(() => {
+    fetchList();
   }, [dispatch, pagination.page, pagination.limit, searchTerm, statusFilter]);
 
   const handleDelete = async (id) => {
     try {
+      setProcessing(true);
       await dispatch(deleteGuider(id)).unwrap();
       toast.success('Guider deleted successfully');
       setDeleteConfirm(null);
+      fetchList();
     } catch {
       toast.error('Delete failed');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -100,6 +124,7 @@ const Guiders = () => {
     try {
       await dispatch(updateGuider({ id, data: { isActive: !currentStatus } })).unwrap();
       toast.success('Status updated');
+      fetchList();
     } catch (error) {
       toast.error(error.message || 'Status update failed');
     }
@@ -107,29 +132,99 @@ const Guiders = () => {
 
   const handleBlock = async (guiderId) => {
     try {
-      const guider = items.find(g => g.id === guiderId);
-      await apiClient.post('/blocks', { blockedUserId: guider?.userId || guiderId, reason: 'Admin block' });
+      setProcessing(true);
+      const guider = items.find((g) => g.id === guiderId);
+      await apiClient.post('/blocks', {
+        blockedUserId: guider?.userId || guiderId,
+        reason: 'Admin block',
+      });
       toast.success('Guider blocked successfully');
       setBlockConfirm(null);
+      fetchList();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to block guider');
+    } finally {
+      setProcessing(false);
     }
   };
 
   const columns = [
     {
       field: 'profilePhotoUrl',
-      headerName: 'Image',
+      headerName: 'Profile',
       flex: 0.5,
       minWidth: 80,
+      renderCell: (params) => {
+        const name = getFullName(params.row);
+        return (
+          <Avatar
+            src={getImageUrl(
+              params.row.profilePhotoUrl || params.row.profileImage,
+              name
+            )}
+            alt={name}
+            sx={{
+              width: 38,
+              height: 38,
+              background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              border: '2px solid #fff',
+              boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
+            }}
+          >
+            {(name[0] || 'G').toUpperCase()}
+          </Avatar>
+        );
+      },
+    },
+    {
+      field: 'fullName',
+      headerName: 'Name',
+      flex: 1.2,
+      minWidth: 140,
       renderCell: (params) => (
-        <Avatar src={getImageUrl(params.row.profilePhotoUrl || params.row.profileImage)} alt={getFullName(params.row)} />
+        <Typography
+          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          noWrap
+        >
+          {getFullName(params.row)}
+        </Typography>
       ),
     },
-    { field: 'fullName', headerName: 'Name', flex: 1.2, minWidth: 150, renderCell: (params) => <Typography fontWeight={600}>{getFullName(params.row)}</Typography> },
-    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 180, renderCell: (params) => <Typography variant="body2">{getEmail(params.row)}</Typography> },
-    { field: 'phone', headerName: 'Phone', flex: 1, minWidth: 120, renderCell: (params) => <Typography variant="body2">{getPhone(params.row)}</Typography> },
-    { field: 'experience', headerName: 'Experience', flex: 0.7, minWidth: 100, renderCell: (params) => `${params.row.experience || 0} yrs` },
+    {
+      field: 'email',
+      headerName: 'Email',
+      flex: 1.5,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+          {getEmail(params.row)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'phone',
+      headerName: 'Phone',
+      flex: 1,
+      minWidth: 120,
+      renderCell: (params) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+          {getPhone(params.row)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'experience',
+      headerName: 'Exp.',
+      flex: 0.6,
+      minWidth: 80,
+      renderCell: (params) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }}>
+          {params.row.experience || 0} yrs
+        </Typography>
+      ),
+    },
     {
       field: 'rating',
       headerName: 'Rating',
@@ -137,8 +232,10 @@ const Guiders = () => {
       minWidth: 80,
       renderCell: (params) => (
         <Stack direction="row" alignItems="center" spacing={0.5}>
-          <Star sx={{ fontSize: 16, color: '#F59E0B' }} />
-          <Typography variant="body2">{params.row.rating || 0}</Typography>
+          <Star sx={{ fontSize: 14, color: T.amber }} />
+          <Typography sx={{ fontSize: '0.78rem', fontWeight: 600 }}>
+            {params.row.rating || 0}
+          </Typography>
         </Stack>
       ),
     },
@@ -151,40 +248,85 @@ const Guiders = () => {
         <Chip
           label={params.row.isActive ? 'Active' : 'Inactive'}
           size="small"
-          color={params.row.isActive ? 'success' : 'error'}
           onClick={() => handleToggleStatus(params.row.id, params.row.isActive)}
-          sx={{ cursor: 'pointer' }}
+          sx={{
+            bgcolor: params.row.isActive ? T.emeraldSoft : '#f1f5f9',
+            color: params.row.isActive ? '#059669' : '#64748b',
+            fontWeight: 700,
+            fontSize: '0.65rem',
+            height: 22,
+            borderRadius: 999,
+            cursor: 'pointer',
+          }}
         />
       ),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      flex: 1.2,
-      minWidth: 180,
+      flex: 1,
+      minWidth: 160,
+      sortable: false,
       renderCell: (params) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title="View">
-            <IconButton onClick={() => navigate(`/guiders/${params.row.id}`)} sx={{ color: COLORS.sky }}>
-              <Visibility />
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Tooltip title="View details">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/guiders/${params.row.id}`)}
+              sx={{
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
+                '&:hover': { bgcolor: '#e0e7ff' },
+                width: 32,
+                height: 32,
+              }}
+            >
+              <Visibility sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Gallery">
             <IconButton
+              size="small"
               onClick={() => setGalleryDialog({ open: true, guider: params.row })}
-              sx={{ color: '#8B5CF6' }}
+              sx={{
+                bgcolor: T.violetSoft,
+                color: T.violet,
+                '&:hover': { bgcolor: '#ddd6fe' },
+                width: 32,
+                height: 32,
+              }}
             >
-              <PhotoLibrary />
+              <PhotoLibrary sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Block">
-            <IconButton onClick={() => setBlockConfirm(params.row.id)} sx={{ color: '#EF4444' }}>
-              <Block />
+          <Tooltip title="Block guider">
+            <IconButton
+              size="small"
+              onClick={() => setBlockConfirm(params.row.id)}
+              sx={{
+                bgcolor: T.amberSoft,
+                color: '#b45309',
+                '&:hover': { bgcolor: '#fde68a' },
+                width: 32,
+                height: 32,
+              }}
+            >
+              <Block sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton onClick={() => setDeleteConfirm(params.row.id)} sx={{ color: COLORS.rose }}>
-              <Delete />
+          <Tooltip title="Delete guider">
+            <IconButton
+              size="small"
+              onClick={() => setDeleteConfirm(params.row.id)}
+              sx={{
+                bgcolor: T.roseSoft,
+                color: T.rose,
+                '&:hover': { bgcolor: '#fecaca' },
+                width: 32,
+                height: 32,
+              }}
+            >
+              <Delete sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -194,87 +336,232 @@ const Guiders = () => {
 
   const renderMobileCards = () => (
     <Stack spacing={2}>
-      {items?.length > 0 ? items.map((guider) => (
-        <Card key={guider.id} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-              <Avatar src={getImageUrl(guider.profilePhotoUrl || guider.profileImage)} alt={getFullName(guider)} />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} noWrap>{getFullName(guider)}</Typography>
-                <Typography variant="caption" color="textSecondary" noWrap>{getEmail(guider)}</Typography>
-              </Box>
-              <Chip
-                label={guider.isActive ? 'Active' : 'Inactive'}
-                size="small"
-                color={guider.isActive ? 'success' : 'error'}
-                onClick={() => handleToggleStatus(guider.id, guider.isActive)}
-                sx={{ cursor: 'pointer' }}
-              />
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-              <Box>
-                <Typography variant="caption" color="textSecondary">Phone</Typography>
-                <Typography variant="body2" fontWeight={500}>{getPhone(guider)}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="textSecondary">Experience</Typography>
-                <Typography variant="body2" fontWeight={500}>{guider.experience || 0} yrs</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="textSecondary">Rating</Typography>
-                <Stack direction="row" alignItems="center" spacing={0.5}>
-                  <Star sx={{ fontSize: 14, color: '#F59E0B' }} />
-                  <Typography variant="body2">{guider.rating || 0}</Typography>
-                </Stack>
-              </Box>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5, borderTop: '1px solid #f1f5f9', pt: 1 }}>
-              <IconButton size="small" onClick={() => navigate(`/guiders/${guider.id}`)} sx={{ color: COLORS.sky }}>
-                <Visibility fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => setGalleryDialog({ open: true, guider })} sx={{ color: '#8B5CF6' }}>
-                <PhotoLibrary fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => setBlockConfirm(guider.id)} sx={{ color: '#EF4444' }}>
-                <Block fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => setDeleteConfirm(guider.id)} sx={{ color: COLORS.rose }}>
-                <Delete fontSize="small" />
-              </IconButton>
-            </Box>
-          </CardContent>
-        </Card>
-      )) : (
-        <Typography align="center" color="textSecondary" sx={{ py: 4 }}>No guiders found</Typography>
+      {items?.length > 0 ? (
+        items.map((guider) => {
+          const name = getFullName(guider);
+          return (
+            <Paper
+              key={guider.id}
+              elevation={0}
+              sx={{
+                borderRadius: T.radius,
+                border: `1px solid ${T.border}`,
+                bgcolor: T.surface,
+                p: 2,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                  borderColor: T.borderStrong,
+                },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+                <Avatar
+                  src={getImageUrl(
+                    guider.profilePhotoUrl || guider.profileImage,
+                    name
+                  )}
+                  alt={name}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    border: '2px solid #fff',
+                  }}
+                >
+                  {(name[0] || 'G').toUpperCase()}
+                </Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }}
+                    noWrap
+                  >
+                    {name}
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.2 }}
+                    noWrap
+                  >
+                    {getEmail(guider)}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={guider.isActive ? 'Active' : 'Inactive'}
+                  size="small"
+                  onClick={() => handleToggleStatus(guider.id, guider.isActive)}
+                  sx={{
+                    bgcolor: guider.isActive ? T.emeraldSoft : '#f1f5f9',
+                    color: guider.isActive ? '#059669' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '0.62rem',
+                    height: 22,
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                  }}
+                />
+              </Stack>
+
+              <Stack direction="row" spacing={2.5} sx={{ mb: 1.5 }}>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Phone
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                    {getPhone(guider)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Exp.
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                    {guider.experience || 0} yrs
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Rating
+                  </Typography>
+                  <Stack direction="row" alignItems="center" spacing={0.3} sx={{ mt: 0.2 }}>
+                    <Star sx={{ fontSize: 12, color: T.amber }} />
+                    <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600 }}>
+                      {guider.rating || 0}
+                    </Typography>
+                  </Stack>
+                </Box>
+              </Stack>
+
+              <Stack
+                direction="row"
+                justifyContent="flex-end"
+                spacing={0.5}
+                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => navigate(`/guiders/${guider.id}`)}
+                  sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
+                >
+                  <Visibility sx={{ fontSize: 15 }} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => setGalleryDialog({ open: true, guider })}
+                  sx={{ bgcolor: T.violetSoft, color: T.violet, width: 30, height: 30 }}
+                >
+                  <PhotoLibrary sx={{ fontSize: 15 }} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => setBlockConfirm(guider.id)}
+                  sx={{ bgcolor: T.amberSoft, color: '#b45309', width: 30, height: 30 }}
+                >
+                  <Block sx={{ fontSize: 15 }} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => setDeleteConfirm(guider.id)}
+                  sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
+                >
+                  <Delete sx={{ fontSize: 15 }} />
+                </IconButton>
+              </Stack>
+            </Paper>
+          );
+        })
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: T.radius,
+            border: `1px dashed ${T.border}`,
+            textAlign: 'center',
+          }}
+        >
+          <PersonAdd sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
+          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
+            No guiders found
+          </Typography>
+        </Paper>
       )}
     </Stack>
   );
 
   return (
-    <Box className="fade-in" sx={{ p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
-      <PanelHeader eyebrow="Guiders Management" title="All Guiders" />
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="Guiders Management" title="All Guiders" />
+      </Box>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ flex: 1 }}>
-            <TextField
-              fullWidth
-              placeholder="Search guiders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              sx={{ width: { xs: '100%', md: 300 } }}
-              InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
-            />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
-                <MenuItem value="ALL">All Status</MenuItem>
-                <MenuItem value="true">Active</MenuItem>
-                <MenuItem value="false">Inactive</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
+        }}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            fullWidth
+            placeholder="Search guiders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
+                '&:hover fieldset': { borderColor: '#c7d2fe' },
+                '&.Mui-focused fieldset': { borderColor: T.violet, borderWidth: 1.5 },
+              },
+            }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Status"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
+              <MenuItem value="ALL">All Status</MenuItem>
+              <MenuItem value="true">Active</MenuItem>
+              <MenuItem value="false">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={fetchList}
+              sx={{
+                bgcolor: T.violetSoft,
+                color: T.violet,
+                width: 40,
+                height: 40,
+                '&:hover': { bgcolor: '#ddd6fe' },
+              }}
+            >
+              <Refresh sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+
           <ExportButtons data={items} headers={exportHeaders} filename="guiders" />
         </Stack>
       </Paper>
@@ -282,8 +569,19 @@ const Guiders = () => {
       {isMobile ? (
         loading ? <Loader /> : renderMobileCards()
       ) : (
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
-          {loading ? <Loader /> : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            overflow: 'hidden',
+          }}
+        >
+          {loading ? (
+            <Loader />
+          ) : (
             <DataGrid
               rows={items}
               columns={columns}
@@ -295,28 +593,67 @@ const Guiders = () => {
               components={{ Toolbar: CustomToolbar }}
               disableSelectionOnClick
               autoHeight
+              rowHeight={64}
               sx={{
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#F8FAFC', fontWeight: 700, color: '#475569' },
-                '& .MuiDataGrid-row:hover': { bgcolor: '#F0F4FF' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #F1F5F9', padding: '8px' },
+                border: 'none',
+                '& .MuiDataGrid-columnHeaders': {
+                  bgcolor: T.surfaceSoft,
+                  fontWeight: 700,
+                  color: T.textMuted,
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  borderBottom: `1px solid ${T.border}`,
+                  minHeight: '48px !important',
+                },
+                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
+                '& .MuiDataGrid-row': {
+                  borderBottom: `1px solid ${T.border}`,
+                  transition: 'background-color 0.15s ease',
+                },
+                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
+                '& .MuiDataGrid-cell': {
+                  borderBottom: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  py: 0,
+                },
+                '& .MuiDataGrid-cell:focus': { outline: 'none' },
                 '& .MuiDataGrid-columnSeparator': { display: 'none' },
+                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
+                '& .MuiDataGrid-toolbarContainer': {
+                  p: 1,
+                  borderBottom: `1px solid ${T.border}`,
+                },
               }}
             />
           )}
         </Paper>
       )}
 
-      {/* ✅ Gallery Dialog — Delete-only mode */}
+      {/* ═══════ Gallery Dialog ═══════ */}
       <Dialog
         open={galleryDialog.open}
         onClose={() => setGalleryDialog({ open: false, guider: null })}
         maxWidth="md"
         fullWidth
+        PaperProps={{ sx: { borderRadius: T.radius } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid #E2E8F0' }}>
-          📷 Gallery — {getFullName(galleryDialog.guider || {})}
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.05rem',
+            color: T.textPrimary,
+            borderBottom: `1px solid ${T.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <PhotoLibrary sx={{ fontSize: 18, color: T.violet }} />
+          Gallery — {getFullName(galleryDialog.guider || {})}
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
+        <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
           {galleryDialog.guider && (
             <GalleryManager
               entityId={galleryDialog.guider.id}
@@ -331,26 +668,142 @@ const Guiders = () => {
             />
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setGalleryDialog({ open: false, guider: null })} color="inherit">
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setGalleryDialog({ open: false, guider: null })}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
-        <DialogTitle>Delete Guider?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-          <Button onClick={() => handleDelete(deleteConfirm)} color="error" variant="contained">Delete</Button>
+      {/* ═══════ Delete Dialog ═══════ */}
+      <Dialog
+        open={!!deleteConfirm}
+        onClose={() => !processing && setDeleteConfirm(null)}
+        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            color: T.textPrimary,
+            fontSize: '1.05rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 1.5,
+              bgcolor: T.roseSoft,
+              color: T.rose,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Delete sx={{ fontSize: 18 }} />
+          </Box>
+          Delete Guider?
+        </DialogTitle>
+        <Divider />
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+            This will permanently delete the guider and all associated data.
+            This action cannot be undone.
+          </Typography>
+        </Box>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteConfirm(null)}
+            disabled={processing}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleDelete(deleteConfirm)}
+            disabled={processing}
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              bgcolor: T.rose,
+              '&:hover': { bgcolor: '#e11d48' },
+              boxShadow: 'none',
+            }}
+          >
+            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!blockConfirm} onClose={() => setBlockConfirm(null)}>
-        <DialogTitle>Block Guider?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setBlockConfirm(null)}>Cancel</Button>
-          <Button onClick={() => handleBlock(blockConfirm)} color="error" variant="contained">Block Guider</Button>
+      {/* ═══════ Block Dialog ═══════ */}
+      <Dialog
+        open={!!blockConfirm}
+        onClose={() => !processing && setBlockConfirm(null)}
+        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            color: T.textPrimary,
+            fontSize: '1.05rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 1.5,
+              bgcolor: T.amberSoft,
+              color: '#b45309',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Block sx={{ fontSize: 18 }} />
+          </Box>
+          Block Guider?
+        </DialogTitle>
+        <Divider />
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+            The guider won't be able to log in or access the platform.
+          </Typography>
+        </Box>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button
+            onClick={() => setBlockConfirm(null)}
+            disabled={processing}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleBlock(blockConfirm)}
+            disabled={processing}
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              bgcolor: T.amber,
+              '&:hover': { bgcolor: '#d97706' },
+              boxShadow: 'none',
+            }}
+          >
+            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Block'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -6,17 +6,59 @@ import { toast } from 'react-toastify';
 import {
   Box, Paper, Typography, Button, IconButton, Chip, Select, MenuItem,
   FormControl, InputLabel, Dialog, DialogTitle, DialogActions, TextField,
-  Stack, Avatar, useMediaQuery, useTheme, Card, CardContent, InputAdornment,
-  Tooltip, Link, // ✅ Added Link
+  Stack, Avatar, useMediaQuery, useTheme, InputAdornment,
+  Tooltip, Link, Divider, CircularProgress,
 } from '@mui/material';
-import { Search, Visibility, Cancel } from '@mui/icons-material';
-import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
-import { fetchBookings, updateBookingStatus, setPage, setLimit } from '../redux/slices/bookingSlice';
+import {
+  Search, Visibility, Cancel, Refresh, Inbox,
+} from '@mui/icons-material';
+import {
+  DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport,
+} from '@mui/x-data-grid';
+import {
+  fetchBookings, updateBookingStatus, setPage, setLimit,
+} from '../redux/slices/bookingSlice';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
-import { COLORS } from '../theme/dashboardTheme';
 
-// ✅ Helper functions to extract nested data
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  bgRowHover: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  violetSoft: '#ede9fe',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  skySoft: '#e0f2fe',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
+};
+
+const STATUS_STYLES = {
+  PENDING: { bg: T.amberSoft, color: '#b45309', label: 'Pending' },
+  APPROVED: { bg: T.skySoft, color: '#0369a1', label: 'Approved' },
+  REJECTED: { bg: T.roseSoft, color: '#be123c', label: 'Rejected' },
+  COMPLETED: { bg: T.emeraldSoft, color: '#047857', label: 'Completed' },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
 const getUserName = (row) => {
   if (row.userName) return row.userName;
   if (row.User) return `${row.User.firstName || ''} ${row.User.lastName || ''}`.trim();
@@ -33,15 +75,19 @@ const getPlaceName = (row) => {
 const getGuiderName = (row) => {
   if (row.guiderName) return row.guiderName;
   if (row.guiderPlan?.guider?.fullName) return row.guiderPlan.guider.fullName;
-  if (row.guiderPlan?.guider?.firstName && row.guiderPlan?.guider?.lastName) 
+  if (row.guiderPlan?.guider?.firstName && row.guiderPlan?.guider?.lastName)
     return `${row.guiderPlan.guider.firstName} ${row.guiderPlan.guider.lastName}`.trim();
   return 'N/A';
 };
 
 const getPhotographerName = (row) => {
   if (row.photographerName) return row.photographerName;
-  if (row.photographerPlan?.photographer?.fullName) return row.photographerPlan.photographer.fullName;
-  if (row.photographerPlan?.photographer?.firstName && row.photographerPlan?.photographer?.lastName) 
+  if (row.photographerPlan?.photographer?.fullName)
+    return row.photographerPlan.photographer.fullName;
+  if (
+    row.photographerPlan?.photographer?.firstName &&
+    row.photographerPlan?.photographer?.lastName
+  )
     return `${row.photographerPlan.photographer.firstName} ${row.photographerPlan.photographer.lastName}`.trim();
   return 'N/A';
 };
@@ -53,279 +99,688 @@ const CustomToolbar = () => (
   </GridToolbarContainer>
 );
 
+// ═══════════════════════════════════════════════════════════════
+// BOOKINGS
+// ═══════════════════════════════════════════════════════════════
 const Bookings = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { items, total, loading, pagination } = useSelector((state) => state.bookings);
+  const { items, loading, pagination } = useSelector((s) => s.bookings);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [cancelConfirm, setCancelConfirm] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [updating, setUpdating] = useState(null);
+
+  const fetchList = () => {
+    dispatch(fetchBookings({ page: pagination.page, limit: pagination.limit }));
+  };
 
   useEffect(() => {
-    dispatch(fetchBookings({ page: pagination.page, limit: pagination.limit }));
+    fetchList();
   }, [dispatch, pagination.page, pagination.limit]);
 
-  // ✅ Client-side filtering with extracted data
   const filtered = (items || []).filter((item) => {
     const userName = getUserName(item).toLowerCase();
     const placeName = getPlaceName(item).toLowerCase();
     const guiderName = getGuiderName(item).toLowerCase();
     const photographerName = getPhotographerName(item).toLowerCase();
 
-    const matchesSearch = !searchTerm || 
-      item.id?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch =
+      !searchTerm ||
+      item.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       userName.includes(searchTerm.toLowerCase()) ||
       placeName.includes(searchTerm.toLowerCase()) ||
       guiderName.includes(searchTerm.toLowerCase()) ||
       photographerName.includes(searchTerm.toLowerCase());
 
     const matchesStatus = !filterStatus || item.status === filterStatus;
-    const matchesType = !filterType || 
-      (filterType === 'GUIDER' && item.guiderPlanId) || 
+    const matchesType =
+      !filterType ||
+      (filterType === 'GUIDER' && item.guiderPlanId) ||
       (filterType === 'PHOTOGRAPHER' && item.photographerPlanId);
 
     return matchesSearch && matchesStatus && matchesType;
   });
 
   const handleStatusChange = async (id, status) => {
-    try { 
-      await dispatch(updateBookingStatus({ id, status })).unwrap(); 
-      toast.success('Booking status updated'); 
-      dispatch(fetchBookings({ page: pagination.page, limit: pagination.limit })); 
+    setUpdating(id);
+    try {
+      await dispatch(updateBookingStatus({ id, status })).unwrap();
+      toast.success('Booking status updated');
+      fetchList();
+    } catch (error) {
+      toast.error(error.message || 'Update failed');
+    } finally {
+      setUpdating(null);
     }
-    catch (error) { toast.error(error.message || 'Update failed'); }
   };
 
   const handleCancel = async (id) => {
-    try { 
-      await dispatch(updateBookingStatus({ id, status: 'REJECTED' })).unwrap(); 
-      toast.success('Booking cancelled'); 
-      setCancelConfirm(null); 
-      dispatch(fetchBookings({ page: pagination.page, limit: pagination.limit })); 
-    }
-    catch { toast.error('Cancel failed'); }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PENDING': return 'warning';
-      case 'APPROVED': return 'success';
-      case 'REJECTED': return 'error';
-      case 'COMPLETED': return 'info';
-      default: return 'default';
+    setCancelling(true);
+    try {
+      await dispatch(updateBookingStatus({ id, status: 'REJECTED' })).unwrap();
+      toast.success('Booking cancelled');
+      setCancelConfirm(null);
+      fetchList();
+    } catch {
+      toast.error('Cancel failed');
+    } finally {
+      setCancelling(false);
     }
   };
 
-  // ✅ Better UI Columns (with clickable ID & Date)
   const columns = [
-    { field: 'id', headerName: 'Booking ID', flex: 1, minWidth: 120, renderCell: (p) => (
-      <Link
-        component="button"
-        variant="body2"
-        onClick={() => navigate(`/bookings/${p.row.id}`)}
-        sx={{ fontWeight: 600, color: '#1E3A6E', textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        #{p.row.id?.slice(0, 8)}
-      </Link>
-    )},
-    { field: 'userName', headerName: 'User', flex: 1, minWidth: 130, renderCell: (p) => (
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <Avatar sx={{ width: 32, height: 32, bgcolor: '#1E3A6E', fontSize: 14 }}>
-          {getUserName(p.row).charAt(0)}
-        </Avatar>
-        <Typography variant="body2" fontWeight={500}>{getUserName(p.row)}</Typography>
-      </Stack>
-    )},
-    { field: 'placeName', headerName: 'Place', flex: 1, minWidth: 120, renderCell: (p) => (
-      <Typography variant="body2" color="textSecondary">{getPlaceName(p.row)}</Typography>
-    )},
-    { field: 'guiderName', headerName: 'Guider', flex: 0.8, minWidth: 100, renderCell: (p) => (
-      <Chip label={getGuiderName(p.row)} size="small" variant="outlined" color="info" />
-    )},
-    { field: 'photographerName', headerName: 'Photographer', flex: 0.8, minWidth: 100, renderCell: (p) => (
-      <Chip label={getPhotographerName(p.row)} size="small" variant="outlined" color="secondary" />
-    )},
-    { field: 'bookingDate', headerName: 'Date', flex: 0.8, minWidth: 110, renderCell: (p) => (
-      <Link
-        component="button"
-        variant="body2"
-        onClick={() => navigate(`/bookings/${p.row.id}`)}
-        sx={{ color: '#64748B', textDecoration: 'underline', cursor: 'pointer' }}
-      >
-        {new Date(p.row.bookingDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-      </Link>
-    )},
-    { field: 'totalAmount', headerName: 'Amount', flex: 0.6, minWidth: 90, renderCell: (p) => (
-      <Typography fontWeight="bold" sx={{ color: '#10B981' }}>₹{p.row.totalAmount || 0}</Typography>
-    )},
-    { field: 'status', headerName: 'Status', flex: 0.8, minWidth: 130, renderCell: (p) => (
-      <FormControl size="small" sx={{ minWidth: 120 }}>
-        <Select value={p.row.status} onChange={(e) => handleStatusChange(p.row.id, e.target.value)} sx={{ fontSize: 12, borderRadius: 2 }}>
-          <MenuItem value="PENDING" sx={{ fontSize: 12 }}>⏳ Pending</MenuItem>
-          <MenuItem value="APPROVED" sx={{ fontSize: 12 }}>✅ Approved</MenuItem>
-          <MenuItem value="REJECTED" sx={{ fontSize: 12 }}>❌ Rejected</MenuItem>
-          <MenuItem value="COMPLETED" sx={{ fontSize: 12 }}>🏁 Completed</MenuItem>
-        </Select>
-      </FormControl>
-    )},
-    { field: 'actions', headerName: 'Actions', flex: 0.6, minWidth: 100, renderCell: (p) => (
-      <Stack direction="row" spacing={0.5}>
-        <Tooltip title="View Booking Details">
-          <IconButton onClick={() => navigate(`/bookings/${p.row.id}`)} sx={{ color: '#0EA5E9', '&:hover': { bgcolor: '#E0F2FE' } }}>
-            <Visibility />
-          </IconButton>
-        </Tooltip>
-        {p.row.status === 'PENDING' && (
-          <Tooltip title="Cancel Booking">
-            <IconButton onClick={() => setCancelConfirm(p.row.id)} sx={{ color: '#F43F5E', '&:hover': { bgcolor: '#FFE4E6' } }}>
-              <Cancel />
+    {
+      field: 'id',
+      headerName: 'Booking ID',
+      flex: 1,
+      minWidth: 130,
+      renderCell: (p) => (
+        <Link
+          component="button"
+          onClick={() => navigate(`/bookings/${p.row.id}`)}
+          sx={{
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            color: T.indigo,
+            textDecoration: 'none',
+            fontFamily: 'monospace',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          #{p.row.id?.slice(0, 8)}
+        </Link>
+      ),
+    },
+    {
+      field: 'userName',
+      headerName: 'User',
+      flex: 1.1,
+      minWidth: 150,
+      renderCell: (p) => (
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Avatar
+            sx={{
+              width: 32,
+              height: 32,
+              background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
+              fontSize: 12,
+              fontWeight: 700,
+              border: '2px solid #fff',
+            }}
+          >
+            {getUserName(p.row).charAt(0)}
+          </Avatar>
+          <Typography
+            sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}
+            noWrap
+          >
+            {getUserName(p.row)}
+          </Typography>
+        </Stack>
+      ),
+    },
+    {
+      field: 'placeName',
+      headerName: 'Place',
+      flex: 1,
+      minWidth: 130,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+          {getPlaceName(p.row)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'guiderName',
+      headerName: 'Guider',
+      flex: 0.8,
+      minWidth: 120,
+      renderCell: (p) =>
+        getGuiderName(p.row) !== 'N/A' ? (
+          <Chip
+            label={getGuiderName(p.row)}
+            size="small"
+            sx={{
+              bgcolor: T.violetSoft,
+              color: '#6d28d9',
+              fontWeight: 700,
+              fontSize: '0.62rem',
+              height: 22,
+              borderRadius: 999,
+              maxWidth: 130,
+            }}
+          />
+        ) : (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>—</Typography>
+        ),
+    },
+    {
+      field: 'photographerName',
+      headerName: 'Photographer',
+      flex: 0.8,
+      minWidth: 120,
+      renderCell: (p) =>
+        getPhotographerName(p.row) !== 'N/A' ? (
+          <Chip
+            label={getPhotographerName(p.row)}
+            size="small"
+            sx={{
+              bgcolor: T.roseSoft,
+              color: '#be185d',
+              fontWeight: 700,
+              fontSize: '0.62rem',
+              height: 22,
+              borderRadius: 999,
+              maxWidth: 130,
+            }}
+          />
+        ) : (
+          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>—</Typography>
+        ),
+    },
+    {
+      field: 'bookingDate',
+      headerName: 'Date',
+      flex: 0.8,
+      minWidth: 110,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
+          {new Date(p.row.bookingDate).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })}
+        </Typography>
+      ),
+    },
+    {
+      field: 'totalAmount',
+      headerName: 'Amount',
+      flex: 0.6,
+      minWidth: 90,
+      renderCell: (p) => (
+        <Typography
+          sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#047857' }}
+        >
+          ₹{p.row.totalAmount || 0}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      flex: 0.9,
+      minWidth: 140,
+      renderCell: (p) => (
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <Select
+            value={p.row.status}
+            onChange={(e) => handleStatusChange(p.row.id, e.target.value)}
+            disabled={updating === p.row.id}
+            sx={{
+              fontSize: '0.72rem',
+              borderRadius: 999,
+              bgcolor: (STATUS_STYLES[p.row.status] || STATUS_STYLES.PENDING).bg,
+              color: (STATUS_STYLES[p.row.status] || STATUS_STYLES.PENDING).color,
+              fontWeight: 700,
+              '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                border: `1px solid ${T.borderStrong}`,
+              },
+            }}
+          >
+            <MenuItem value="PENDING" sx={{ fontSize: '0.78rem' }}>Pending</MenuItem>
+            <MenuItem value="APPROVED" sx={{ fontSize: '0.78rem' }}>Approved</MenuItem>
+            <MenuItem value="REJECTED" sx={{ fontSize: '0.78rem' }}>Rejected</MenuItem>
+            <MenuItem value="COMPLETED" sx={{ fontSize: '0.78rem' }}>Completed</MenuItem>
+          </Select>
+        </FormControl>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 0.6,
+      minWidth: 100,
+      sortable: false,
+      renderCell: (p) => (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Tooltip title="View details">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/bookings/${p.row.id}`)}
+              sx={{
+                bgcolor: T.skySoft,
+                color: T.sky,
+                '&:hover': { bgcolor: '#bae6fd' },
+                width: 32,
+                height: 32,
+              }}
+            >
+              <Visibility sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-        )}
-      </Stack>
-    )},
+          {p.row.status === 'PENDING' && (
+            <Tooltip title="Cancel booking">
+              <IconButton
+                size="small"
+                onClick={() => setCancelConfirm(p.row.id)}
+                sx={{
+                  bgcolor: T.roseSoft,
+                  color: T.rose,
+                  '&:hover': { bgcolor: '#fecaca' },
+                  width: 32,
+                  height: 32,
+                }}
+              >
+                <Cancel sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Stack>
+      ),
+    },
   ];
 
-  // ✅ Better Mobile Card View (with clickable ID & Date)
   const renderMobileCards = () => (
     <Stack spacing={2}>
-      {filtered.length > 0 ? filtered.map((booking) => (
-        <Card key={booking.id} sx={{ borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '1px solid #E2E8F0' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Box>
-                <Link
-                  component="button"
-                  variant="subtitle2"
-                  onClick={() => navigate(`/bookings/${booking.id}`)}
-                  sx={{ fontWeight: 700, color: '#1E3A6E', textDecoration: 'underline', cursor: 'pointer' }}
-                >
-                  Booking #{booking.id?.slice(0, 8)}
-                </Link>
-                <Link
-                  component="button"
-                  variant="caption"
-                  onClick={() => navigate(`/bookings/${booking.id}`)}
-                  sx={{ color: 'textSecondary', textDecoration: 'underline', cursor: 'pointer', display: 'block' }}
-                >
-                  {new Date(booking.bookingDate).toLocaleString()}
-                </Link>
-              </Box>
-              <Chip label={booking.status} size="small" color={getStatusColor(booking.status)} />
-            </Box>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-              <Avatar sx={{ width: 28, height: 28, bgcolor: '#1E3A6E', fontSize: 12 }}>
-                {getUserName(booking).charAt(0)}
-              </Avatar>
-              <Typography variant="body2" fontWeight={600}>{getUserName(booking)}</Typography>
-              <Typography variant="body2" color="textSecondary">•</Typography>
-              <Typography variant="body2" color="textSecondary">{getPlaceName(booking)}</Typography>
-            </Stack>
-            {(getGuiderName(booking) !== 'N/A' || getPhotographerName(booking) !== 'N/A') && (
-              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                {getGuiderName(booking) !== 'N/A' && <Chip label={`Guider: ${getGuiderName(booking)}`} size="small" variant="outlined" color="info" />}
-                {getPhotographerName(booking) !== 'N/A' && <Chip label={`Photo: ${getPhotographerName(booking)}`} size="small" variant="outlined" color="secondary" />}
+      {filtered.length > 0 ? (
+        filtered.map((booking) => {
+          const statusStyle =
+            STATUS_STYLES[booking.status] || STATUS_STYLES.PENDING;
+          return (
+            <Paper
+              key={booking.id}
+              elevation={0}
+              sx={{
+                borderRadius: T.radius,
+                border: `1px solid ${T.border}`,
+                bgcolor: T.surface,
+                p: 2,
+                '&:hover': {
+                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                  borderColor: T.borderStrong,
+                },
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Box>
+                  <Typography
+                    component="button"
+                    onClick={() => navigate(`/bookings/${booking.id}`)}
+                    sx={{
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      color: T.indigo,
+                      fontFamily: 'monospace',
+                      background: 'none',
+                      border: 'none',
+                      p: 0,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    #{booking.id?.slice(0, 8)}
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: '0.68rem', color: T.textFaint, display: 'block', mt: 0.2 }}
+                  >
+                    {new Date(booking.bookingDate).toLocaleString('en-IN')}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={statusStyle.label}
+                  size="small"
+                  sx={{
+                    bgcolor: statusStyle.bg,
+                    color: statusStyle.color,
+                    fontWeight: 700,
+                    fontSize: '0.62rem',
+                    height: 22,
+                    borderRadius: 999,
+                  }}
+                />
               </Stack>
-            )}
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ borderTop: '1px solid #F1F5F9', pt: 1.5, mt: 1 }}>
-              <Typography variant="h6" sx={{ color: '#10B981', fontWeight: 700 }}>₹{booking.totalAmount || 0}</Typography>
-              <Stack direction="row">
-                <Tooltip title="View Details">
-                  <IconButton size="small" onClick={() => navigate(`/bookings/${booking.id}`)} sx={{ color: '#0EA5E9' }}>
-                    <Visibility fontSize="small" />
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Avatar
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {getUserName(booking).charAt(0)}
+                </Avatar>
+                <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: T.textPrimary }}>
+                  {getUserName(booking)}
+                </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>•</Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
+                  {getPlaceName(booking)}
+                </Typography>
+              </Stack>
+              {(getGuiderName(booking) !== 'N/A' ||
+                getPhotographerName(booking) !== 'N/A') && (
+                <Stack direction="row" spacing={0.5} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+                  {getGuiderName(booking) !== 'N/A' && (
+                    <Chip
+                      label={`Guider: ${getGuiderName(booking)}`}
+                      size="small"
+                      sx={{
+                        bgcolor: T.violetSoft,
+                        color: '#6d28d9',
+                        fontWeight: 700,
+                        fontSize: '0.6rem',
+                        height: 20,
+                        borderRadius: 999,
+                      }}
+                    />
+                  )}
+                  {getPhotographerName(booking) !== 'N/A' && (
+                    <Chip
+                      label={`Photo: ${getPhotographerName(booking)}`}
+                      size="small"
+                      sx={{
+                        bgcolor: T.roseSoft,
+                        color: '#be185d',
+                        fontWeight: 700,
+                        fontSize: '0.6rem',
+                        height: 20,
+                        borderRadius: 999,
+                      }}
+                    />
+                  )}
+                </Stack>
+              )}
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
+              >
+                <Typography sx={{ fontSize: '1rem', color: '#047857', fontWeight: 800 }}>
+                  ₹{booking.totalAmount || 0}
+                </Typography>
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton
+                    size="small"
+                    onClick={() => navigate(`/bookings/${booking.id}`)}
+                    sx={{ bgcolor: T.skySoft, color: T.sky, width: 30, height: 30 }}
+                  >
+                    <Visibility sx={{ fontSize: 15 }} />
                   </IconButton>
-                </Tooltip>
-                {booking.status === 'PENDING' && (
-                  <Tooltip title="Cancel Booking">
-                    <IconButton size="small" onClick={() => setCancelConfirm(booking.id)} sx={{ color: '#F43F5E' }}>
-                      <Cancel fontSize="small" />
+                  {booking.status === 'PENDING' && (
+                    <IconButton
+                      size="small"
+                      onClick={() => setCancelConfirm(booking.id)}
+                      sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
+                    >
+                      <Cancel sx={{ fontSize: 15 }} />
                     </IconButton>
-                  </Tooltip>
-                )}
+                  )}
+                </Stack>
               </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
-      )) : (
-        <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
-          <Typography color="textSecondary">No bookings found</Typography>
+            </Paper>
+          );
+        })
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: T.radius,
+            border: `1px dashed ${T.border}`,
+            textAlign: 'center',
+          }}
+        >
+          <Inbox sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
+          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
+            No bookings found
+          </Typography>
         </Paper>
       )}
     </Stack>
   );
 
   return (
-    <Box className="fade-in" sx={{ p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
-      <PanelHeader eyebrow="Transactions" title="Bookings Management" />
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="Transactions" title="Bookings Management" />
+      </Box>
 
-      {/* ✅ Filters - Fixed width, no Grid */}
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
-          <TextField 
-            size="small" 
-            placeholder="Search by booking ID, user, place..." 
-            value={searchTerm} 
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
+        }}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            size="small"
+            placeholder="Search by booking ID, user, place..."
+            value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }}
-            sx={{ width: { xs: '100%', md: 300 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              flex: 1,
+              minWidth: 220,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
+                '&:hover fieldset': { borderColor: '#c7d2fe' },
+                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+              },
+            }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Status</InputLabel>
-            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status">
-              <MenuItem value="">All</MenuItem>
+            <Select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              label="Status"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
+              <MenuItem value="">All Status</MenuItem>
               <MenuItem value="PENDING">Pending</MenuItem>
               <MenuItem value="APPROVED">Approved</MenuItem>
               <MenuItem value="REJECTED">Rejected</MenuItem>
               <MenuItem value="COMPLETED">Completed</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Type</InputLabel>
-            <Select value={filterType} onChange={(e) => setFilterType(e.target.value)} label="Type">
+            <Select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              label="Type"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
               <MenuItem value="">All Types</MenuItem>
               <MenuItem value="GUIDER">Guider</MenuItem>
               <MenuItem value="PHOTOGRAPHER">Photographer</MenuItem>
             </Select>
           </FormControl>
-          <Chip label={`Total: ${filtered.length}`} color="primary" variant="outlined" />
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={fetchList}
+              sx={{
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
+                width: 40,
+                height: 40,
+                '&:hover': { bgcolor: '#e0e7ff' },
+              }}
+            >
+              <Refresh sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          <Chip
+            label={`${filtered.length} total`}
+            sx={{
+              bgcolor: T.surfaceSoft,
+              color: T.textMuted,
+              border: `1px solid ${T.border}`,
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              height: 32,
+              borderRadius: 999,
+            }}
+          />
         </Stack>
       </Paper>
 
       {isMobile ? (
         loading ? <Loader /> : renderMobileCards()
       ) : (
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
-          {loading ? <Loader /> : (
-            <DataGrid 
-              rows={filtered} 
-              columns={columns} 
-              pageSize={pagination.limit} 
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            overflow: 'hidden',
+          }}
+        >
+          {loading ? (
+            <Loader />
+          ) : (
+            <DataGrid
+              rows={filtered}
+              columns={columns}
+              pageSize={pagination.limit}
               rowsPerPageOptions={[5, 10, 25]}
-              page={pagination.page - 1} 
-              onPageChange={(p) => dispatch(setPage(p + 1))} 
+              page={pagination.page - 1}
+              onPageChange={(p) => dispatch(setPage(p + 1))}
               onPageSizeChange={(s) => dispatch(setLimit(s))}
-              components={{ Toolbar: CustomToolbar }} 
-              disableSelectionOnClick 
+              components={{ Toolbar: CustomToolbar }}
+              disableSelectionOnClick
               autoHeight
+              rowHeight={64}
               sx={{
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#F8FAFC', fontWeight: 700, color: '#475569' },
-                '& .MuiDataGrid-row:hover': { bgcolor: '#F0F4FF' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #F1F5F9' },
+                border: 'none',
+                '& .MuiDataGrid-columnHeaders': {
+                  bgcolor: T.surfaceSoft,
+                  fontWeight: 700,
+                  color: T.textMuted,
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  borderBottom: `1px solid ${T.border}`,
+                  minHeight: '48px !important',
+                },
+                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
+                '& .MuiDataGrid-row': {
+                  borderBottom: `1px solid ${T.border}`,
+                  transition: 'background-color 0.15s ease',
+                },
+                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
+                '& .MuiDataGrid-cell': {
+                  borderBottom: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  py: 0,
+                },
+                '& .MuiDataGrid-cell:focus': { outline: 'none' },
                 '& .MuiDataGrid-columnSeparator': { display: 'none' },
-              }} 
+                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
+                '& .MuiDataGrid-toolbarContainer': {
+                  p: 1,
+                  borderBottom: `1px solid ${T.border}`,
+                },
+              }}
             />
           )}
         </Paper>
       )}
 
-      <Dialog open={!!cancelConfirm} onClose={() => setCancelConfirm(null)}>
-        <DialogTitle>Cancel Booking?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setCancelConfirm(null)}>No</Button>
-          <Button onClick={() => handleCancel(cancelConfirm)} color="error" variant="contained">Yes, Cancel</Button>
+      {/* Cancel Dialog */}
+      <Dialog
+        open={!!cancelConfirm}
+        onClose={() => !cancelling && setCancelConfirm(null)}
+        slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.05rem',
+            color: T.textPrimary,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 1.5,
+              bgcolor: T.roseSoft,
+              color: T.rose,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Cancel sx={{ fontSize: 18 }} />
+          </Box>
+          Cancel Booking?
+        </DialogTitle>
+        <Divider sx={{ borderColor: T.border }} />
+        <Box sx={{ px: 3, py: 2 }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+            This will reject the booking. The user will be notified. This action
+            cannot be undone.
+          </Typography>
+        </Box>
+        <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
+          <Button
+            onClick={() => setCancelConfirm(null)}
+            disabled={cancelling}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          >
+            Keep
+          </Button>
+          <Button
+            onClick={() => handleCancel(cancelConfirm)}
+            disabled={cancelling}
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              borderRadius: 2,
+              bgcolor: T.rose,
+              '&:hover': { bgcolor: '#e11d48' },
+              boxShadow: 'none',
+            }}
+          >
+            {cancelling ? (
+              <CircularProgress size={16} sx={{ color: '#fff' }} />
+            ) : (
+              'Cancel Booking'
+            )}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

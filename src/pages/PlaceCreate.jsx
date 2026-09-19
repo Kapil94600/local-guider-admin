@@ -1,21 +1,62 @@
+// src/pages/PlaceCreate.jsx
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { FaArrowLeft, FaSave, FaImage } from 'react-icons/fa';
+import {
+  Box, Paper, Typography, Button, TextField, Stack, InputAdornment,
+  FormControl, Select, MenuItem, InputLabel, CircularProgress,
+} from '@mui/material';
 import { createPlace } from '../redux/slices/placeSlice';
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  rose: '#f43f5e',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// FORM FIELD STYLE
+// ═══════════════════════════════════════════════════════════════
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2,
+    bgcolor: T.surfaceSoft,
+    '& fieldset': { borderColor: T.border },
+    '&:hover fieldset': { borderColor: '#c7d2fe' },
+    '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+  },
+  '& .MuiInputLabel-root.Mui-focused': { color: T.indigo },
+};
 
 const PlaceCreate = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
 
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      // 🔥 No price field anymore
       const result = await dispatch(createPlace(data));
       if (createPlace.fulfilled.match(result)) {
         toast.success('Place created successfully!');
@@ -31,160 +72,278 @@ const PlaceCreate = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <button
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: 'auto' }}>
+      {/* ═══════ Header ═══════ */}
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button
           onClick={() => navigate('/places')}
-          className="p-2 rounded-full hover:bg-gray-100 transition"
+          sx={{
+            minWidth: 40,
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            color: T.textMuted,
+            p: 0,
+            '&:hover': {
+              bgcolor: T.surfaceSoft,
+              borderColor: T.borderStrong,
+              color: T.textPrimary,
+            },
+          }}
         >
-          <FaArrowLeft className="text-gray-600" />
-        </button>
-        <h2 className="text-2xl font-bold text-gray-800">Add New Place</h2>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/50 space-y-6">
-        {/* Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Place Name *</label>
-          <input
-            {...register('name', { required: 'Name is required' })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="Enter place name"
-          />
-          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-        </div>
-
-        {/* Category */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-          <select
-            {...register('category', { required: 'Category is required' })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+          <FaArrowLeft size={14} />
+        </Button>
+        <Box>
+          <Typography
+            sx={{
+              fontFamily: T.fontDisplay,
+              fontWeight: 800,
+              fontSize: '1.35rem',
+              color: T.textPrimary,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+            }}
           >
-            <option value="">Select category</option>
-            <option value="historical">Historical</option>
-            <option value="nature">Nature</option>
-            <option value="beach">Beach</option>
-            <option value="adventure">Adventure</option>
-            <option value="religious">Religious</option>
-            <option value="cultural">Cultural</option>
-            <option value="other">Other</option>
-          </select>
-          {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>}
-        </div>
+            Add New Place
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.78rem',
+              color: T.textMuted,
+              mt: 0.3,
+              fontWeight: 500,
+            }}
+          >
+            Fill in the details to create a new place
+          </Typography>
+        </Box>
+      </Stack>
 
-        {/* Location – Country, State, City */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
-            <input
-              {...register('country', { required: 'Country is required' })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+      {/* ═══════ Form ═══════ */}
+      <Paper
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+        }}
+      >
+        <Stack spacing={2.5}>
+          {/* Name */}
+          <TextField
+            fullWidth
+            label="Place Name *"
+            placeholder="Enter place name"
+            {...register('name', { required: 'Name is required' })}
+            error={!!errors.name}
+            helperText={errors.name?.message}
+            sx={fieldSx}
+          />
+
+          {/* Category */}
+          <FormControl fullWidth error={!!errors.category} sx={fieldSx}>
+            <InputLabel>Category *</InputLabel>
+            <Select
+              label="Category *"
+              defaultValue=""
+              {...register('category', { required: 'Category is required' })}
+            >
+              <MenuItem value="">Select category</MenuItem>
+              <MenuItem value="historical">Historical</MenuItem>
+              <MenuItem value="nature">Nature</MenuItem>
+              <MenuItem value="beach">Beach</MenuItem>
+              <MenuItem value="adventure">Adventure</MenuItem>
+              <MenuItem value="religious">Religious</MenuItem>
+              <MenuItem value="cultural">Cultural</MenuItem>
+              <MenuItem value="other">Other</MenuItem>
+            </Select>
+            {errors.category && (
+              <Typography
+                sx={{ fontSize: '0.7rem', color: T.rose, mt: 0.5, ml: 1.5 }}
+              >
+                {errors.category.message}
+              </Typography>
+            )}
+          </FormControl>
+
+          {/* Location Row */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+              gap: 2,
+            }}
+          >
+            <TextField
+              fullWidth
+              label="Country *"
               placeholder="Country"
+              {...register('country', { required: 'Country is required' })}
+              error={!!errors.country}
+              helperText={errors.country?.message}
+              sx={fieldSx}
             />
-            {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
-            <input
-              {...register('state', { required: 'State is required' })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+            <TextField
+              fullWidth
+              label="State *"
               placeholder="State"
+              {...register('state', { required: 'State is required' })}
+              error={!!errors.state}
+              helperText={errors.state?.message}
+              sx={fieldSx}
             />
-            {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-            <input
-              {...register('city', { required: 'City is required' })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+            <TextField
+              fullWidth
+              label="City *"
               placeholder="City"
+              {...register('city', { required: 'City is required' })}
+              error={!!errors.city}
+              helperText={errors.city?.message}
+              sx={fieldSx}
             />
-            {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
-          </div>
-        </div>
+          </Box>
 
-        {/* Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-          <input
-            {...register('address')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+          {/* Address */}
+          <TextField
+            fullWidth
+            label="Address"
             placeholder="Street address"
+            {...register('address')}
+            sx={fieldSx}
           />
-        </div>
 
-        {/* Latitude & Longitude */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
-            <input
-              type="number"
-              step="any"
-              {...register('latitude')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+          {/* Lat/Lng */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2,
+            }}
+          >
+            <TextField
+              fullWidth
+              label="Latitude"
               placeholder="e.g. 26.9124"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
-            <input
               type="number"
-              step="any"
-              {...register('longitude')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+              inputProps={{ step: 'any' }}
+              {...register('latitude')}
+              sx={fieldSx}
+            />
+            <TextField
+              fullWidth
+              label="Longitude"
               placeholder="e.g. 75.7873"
+              type="number"
+              inputProps={{ step: 'any' }}
+              {...register('longitude')}
+              sx={fieldSx}
             />
-          </div>
-        </div>
+          </Box>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-          <textarea
-            {...register('description', { required: 'Description is required' })}
-            rows="4"
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+          {/* Description */}
+          <TextField
+            fullWidth
+            label="Description *"
             placeholder="Describe the place..."
+            multiline
+            rows={4}
+            {...register('description', { required: 'Description is required' })}
+            error={!!errors.description}
+            helperText={errors.description?.message}
+            sx={fieldSx}
           />
-          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>}
-        </div>
 
-        {/* Image URL */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-          <div className="flex items-center gap-4">
-            <input
-              {...register('image')}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="https://example.com/image.jpg"
-            />
-            <div className="p-3 bg-gray-100 rounded-xl text-gray-500">
-              <FaImage size={20} />
-            </div>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">Enter a valid image URL (optional)</p>
-        </div>
+          {/* Image URL */}
+          <TextField
+            fullWidth
+            label="Image URL"
+            placeholder="https://example.com/image.jpg"
+            {...register('image')}
+            sx={fieldSx}
+            helperText="Enter a valid image URL (optional)"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <FaImage size={14} style={{ color: T.textFaint }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Stack>
 
-        {/* Submit */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button
+        {/* ═══════ Actions ═══════ */}
+        <Stack
+          direction="row"
+          justifyContent="flex-end"
+          spacing={1.5}
+          sx={{
+            mt: 3,
+            pt: 2.5,
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <Button
             type="button"
             onClick={() => navigate('/places')}
-            className="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              color: T.textMuted,
+              px: 2,
+              py: 1,
+              borderRadius: 2,
+              border: `1px solid ${T.border}`,
+              bgcolor: T.surface,
+              '&:hover': {
+                bgcolor: T.surfaceSoft,
+                borderColor: T.borderStrong,
+                color: T.textPrimary,
+              },
+            }}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-70"
+            startIcon={
+              loading ? (
+                <CircularProgress size={14} sx={{ color: '#fff' }} />
+              ) : (
+                <FaSave size={12} />
+              )
+            }
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              bgcolor: T.indigo,
+              color: '#fff',
+              px: 2.5,
+              py: 1,
+              borderRadius: 2,
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#4f46e5' },
+              '&.Mui-disabled': {
+                bgcolor: T.indigo,
+                opacity: 0.6,
+                color: '#fff',
+              },
+            }}
           >
-            {loading ? 'Creating...' : <><FaSave /> Create Place</>}
-          </button>
-        </div>
-      </form>
-    </div>
+            {loading ? 'Creating...' : 'Create Place'}
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   );
 };
 

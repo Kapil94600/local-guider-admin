@@ -1,18 +1,56 @@
+// src/pages/Payments.jsx
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { DataGrid, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid';
 import {
-  Typography, Paper, Grid, Box, TextField, InputAdornment, Stack,
-  Card, CardContent, Chip, useMediaQuery, useTheme, Button,
-  Dialog, DialogTitle, DialogActions,
+  DataGrid, GridToolbarContainer, GridToolbarExport,
+} from '@mui/x-data-grid';
+import {
+  Typography, Paper, Box, TextField, InputAdornment, Stack,
+  Chip, useMediaQuery, useTheme, FormControl, InputLabel,
+  Select, MenuItem, Tooltip, IconButton,
 } from '@mui/material';
-import { Search, Payment, TrendingUp, ReceiptLong } from '@mui/icons-material';
+import {
+  Search, Payment, TrendingUp, ReceiptLong, Refresh,
+  CheckCircle, Schedule, Inbox,
+} from '@mui/icons-material';
 import { fetchPayments } from '../redux/slices/paymentSlice';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
 import ErrorAlert from '../components/ErrorAlert';
 import ExportButtons from '../components/ExportButtons';
-import { COLORS, FONT_DISPLAY, FONT_MONO } from '../theme/dashboardTheme';
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  bgRowHover: '#fafbfc',
+  textPrimary: '#0b1220',
+  textMuted: '#64748b',
+  textFaint: '#94a3b8',
+  indigo: '#6366f1',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
+  emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
+  rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
+  amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  skySoft: '#e0f2fe',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
+};
+
+const STATUS_STYLES = {
+  SUCCESS: { bg: T.emeraldSoft, color: '#047857' },
+  PENDING: { bg: T.amberSoft, color: '#b45309' },
+  FAILED: { bg: T.roseSoft, color: '#be123c' },
+};
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -20,27 +58,99 @@ const CustomToolbar = () => (
   </GridToolbarContainer>
 );
 
+// ═══════════════════════════════════════════════════════════════
+// SUMMARY STAT CARD
+// ═══════════════════════════════════════════════════════════════
+const SummaryCard = ({ title, value, icon: Icon, accent }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2.5,
+      borderRadius: T.radius,
+      border: `1px solid ${T.border}`,
+      bgcolor: T.surface,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        borderColor: T.borderStrong,
+        transform: 'translateY(-2px)',
+        boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+      },
+    }}
+  >
+    <Stack direction="row" alignItems="center" spacing={1.5}>
+      <Box
+        sx={{
+          width: 44,
+          height: 44,
+          borderRadius: 2,
+          bgcolor: `${accent}12`,
+          color: accent,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Icon sx={{ fontSize: 20 }} />
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography
+          sx={{
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            color: T.textFaint,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            mb: 0.25,
+          }}
+        >
+          {title}
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: '1.35rem',
+            fontWeight: 800,
+            color: T.textPrimary,
+            letterSpacing: '-0.02em',
+            fontFamily: T.fontDisplay,
+            lineHeight: 1.1,
+          }}
+        >
+          {value}
+        </Typography>
+      </Box>
+    </Stack>
+  </Paper>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// PAYMENTS
+// ═══════════════════════════════════════════════════════════════
 const Payments = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { payments, isLoading, error } = useSelector((state) => state.payments);
+  const { payments, isLoading, error } = useSelector((s) => s.payments);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
   const paymentsList = Array.isArray(payments) ? payments : [];
 
+  const fetchList = () => dispatch(fetchPayments());
+
   useEffect(() => {
-    dispatch(fetchPayments());
+    fetchList();
   }, [dispatch]);
 
   const totalRevenue = paymentsList.reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalTransactions = paymentsList.length;
-  const completedCount = paymentsList.filter(p => p.status === 'SUCCESS').length;
-  const pendingCount = paymentsList.filter(p => p.status === 'PENDING').length;
+  const completedCount = paymentsList.filter((p) => p.status === 'SUCCESS').length;
+  const pendingCount = paymentsList.filter((p) => p.status === 'PENDING').length;
 
   const filtered = paymentsList.filter((p) => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch =
+      !searchTerm ||
       p.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.bookingId?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -59,163 +169,366 @@ const Payments = () => {
   ];
 
   const columns = [
-    { field: 'id', headerName: 'Payment ID', flex: 1, minWidth: 150 },
-    { field: 'bookingId', headerName: 'Booking ID', flex: 1, minWidth: 150 },
-    { field: 'userName', headerName: 'User', flex: 1, minWidth: 120 },
     {
-      field: 'amount',
-      headerName: 'Amount',
-      flex: 0.5,
-      minWidth: 100,
-      renderCell: (params) => (
-        <Typography fontWeight={600} sx={{ color: COLORS.emerald }}>
-          ₹{params.row.amount?.toFixed(2) || '0.00'}
+      field: 'id',
+      headerName: 'Payment ID',
+      flex: 1,
+      minWidth: 150,
+      renderCell: (p) => (
+        <Typography
+          sx={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            color: T.textPrimary,
+            fontFamily: 'monospace',
+          }}
+          noWrap
+        >
+          {p.row.id?.slice(0, 12) || '—'}
         </Typography>
       ),
     },
-    { field: 'method', headerName: 'Method', flex: 0.5, minWidth: 80 },
+    {
+      field: 'bookingId',
+      headerName: 'Booking ID',
+      flex: 1,
+      minWidth: 150,
+      renderCell: (p) => (
+        <Typography
+          sx={{
+            fontSize: '0.72rem',
+            color: T.textMuted,
+            fontFamily: 'monospace',
+          }}
+          noWrap
+        >
+          {p.row.bookingId?.slice(0, 12) || '—'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'userName',
+      headerName: 'User',
+      flex: 1,
+      minWidth: 130,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }} noWrap>
+          {p.row.userName || '—'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'amount',
+      headerName: 'Amount',
+      flex: 0.6,
+      minWidth: 100,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#047857' }}>
+          ₹{p.row.amount?.toFixed(2) || '0.00'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'method',
+      headerName: 'Method',
+      flex: 0.6,
+      minWidth: 100,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }}>
+          {p.row.method || '—'}
+        </Typography>
+      ),
+    },
     {
       field: 'status',
       headerName: 'Status',
-      flex: 0.5,
+      flex: 0.6,
       minWidth: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.status}
-          size="small"
-          color={params.row.status === 'SUCCESS' ? 'success' : params.row.status === 'FAILED' ? 'error' : 'warning'}
-        />
-      ),
+      renderCell: (p) => {
+        const style = STATUS_STYLES[p.row.status] || STATUS_STYLES.PENDING;
+        return (
+          <Chip
+            label={p.row.status}
+            size="small"
+            sx={{
+              bgcolor: style.bg,
+              color: style.color,
+              fontWeight: 700,
+              fontSize: '0.65rem',
+              height: 22,
+              borderRadius: 999,
+            }}
+          />
+        );
+      },
     },
     {
       field: 'createdAt',
       headerName: 'Date',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => new Date(params.row.createdAt).toLocaleDateString(),
+      flex: 0.8,
+      minWidth: 110,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
+          {new Date(p.row.createdAt).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })}
+        </Typography>
+      ),
     },
   ];
 
-  if (isLoading) return <Loader />;
+  const renderMobileCards = () => (
+    <Stack spacing={2}>
+      {filtered.length > 0 ? (
+        filtered.map((payment) => {
+          const style = STATUS_STYLES[payment.status] || STATUS_STYLES.PENDING;
+          return (
+            <Paper
+              key={payment.id}
+              elevation={0}
+              sx={{
+                borderRadius: T.radius,
+                border: `1px solid ${T.border}`,
+                bgcolor: T.surface,
+                p: 2,
+                '&:hover': {
+                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                  borderColor: T.borderStrong,
+                },
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 1.5,
+                      bgcolor: T.skySoft,
+                      color: T.sky,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Payment sx={{ fontSize: 16 }} />
+                  </Box>
+                  <Typography
+                    sx={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      color: T.textPrimary,
+                    }}
+                  >
+                    {payment.id?.slice(0, 10)}
+                  </Typography>
+                </Stack>
+                <Chip
+                  label={payment.status}
+                  size="small"
+                  sx={{
+                    bgcolor: style.bg,
+                    color: style.color,
+                    fontWeight: 700,
+                    fontSize: '0.62rem',
+                    height: 22,
+                    borderRadius: 999,
+                  }}
+                />
+              </Stack>
+
+              <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    User
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: T.textPrimary, mt: 0.2 }}>
+                    {payment.userName || '—'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Booking
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: T.textPrimary, mt: 0.2, fontFamily: 'monospace' }}>
+                    {payment.bookingId?.slice(0, 8) || '—'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Method
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: T.textPrimary, mt: 0.2 }}>
+                    {payment.method || '—'}
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
+              >
+                <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: '#047857' }}>
+                  ₹{payment.amount?.toFixed(2) || '0.00'}
+                </Typography>
+                <Typography sx={{ fontSize: '0.7rem', color: T.textFaint }}>
+                  {new Date(payment.createdAt).toLocaleDateString('en-IN')}
+                </Typography>
+              </Stack>
+            </Paper>
+          );
+        })
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: T.radius,
+            border: `1px dashed ${T.border}`,
+            textAlign: 'center',
+          }}
+        >
+          <Inbox sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
+          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
+            No payments found
+          </Typography>
+        </Paper>
+      )}
+    </Stack>
+  );
+
+  if (isLoading && paymentsList.length === 0) return <Loader />;
   if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box className="fade-in" sx={{ p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
-      <PanelHeader eyebrow="Financials" title="Payments Management" />
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="Financials" title="Payments Management" />
+      </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', textAlign: 'center' }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-              <TrendingUp sx={{ color: COLORS.emerald }} />
-              <Typography variant="subtitle1" sx={{ color: COLORS.textMuted }}>Total Revenue</Typography>
-            </Stack>
-            <Typography variant="h4" sx={{ fontFamily: FONT_MONO, fontWeight: 700, color: COLORS.textPrimary }}>
-              ₹{totalRevenue.toFixed(2)}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', textAlign: 'center' }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-              <ReceiptLong sx={{ color: COLORS.sky }} />
-              <Typography variant="subtitle1" sx={{ color: COLORS.textMuted }}>Total Transactions</Typography>
-            </Stack>
-            <Typography variant="h4" sx={{ fontFamily: FONT_MONO, fontWeight: 700, color: COLORS.textPrimary }}>
-              {totalTransactions}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', textAlign: 'center' }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-              <Payment sx={{ color: COLORS.success }} />
-              <Typography variant="subtitle1" sx={{ color: COLORS.textMuted }}>Successful</Typography>
-            </Stack>
-            <Typography variant="h4" sx={{ fontFamily: FONT_MONO, fontWeight: 700, color: COLORS.success }}>
-              {completedCount}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', textAlign: 'center' }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-              <Payment sx={{ color: COLORS.warning }} />
-              <Typography variant="subtitle1" sx={{ color: COLORS.textMuted }}>Pending</Typography>
-            </Stack>
-            <Typography variant="h4" sx={{ fontFamily: FONT_MONO, fontWeight: 700, color: COLORS.warning }}>
-              {pendingCount}
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+          gap: 2.5,
+          mb: 2.5,
+        }}
+      >
+        <SummaryCard
+          title="Total Revenue"
+          value={`₹${totalRevenue.toFixed(2)}`}
+          icon={TrendingUp}
+          accent={T.emerald}
+        />
+        <SummaryCard
+          title="Transactions"
+          value={totalTransactions}
+          icon={ReceiptLong}
+          accent={T.sky}
+        />
+        <SummaryCard
+          title="Successful"
+          value={completedCount}
+          icon={CheckCircle}
+          accent={T.emerald}
+        />
+        <SummaryCard
+          title="Pending"
+          value={pendingCount}
+          icon={Schedule}
+          accent={T.amber}
+        />
+      </Box>
 
-      {/* Search & Export */}
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
+        }}
+      >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
           <TextField
             fullWidth
-            placeholder="Search by user, payment ID, booking ID..."
             size="small"
+            placeholder="Search by user, payment ID, booking ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: (<InputAdornment position="start"><Search /></InputAdornment>) }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
+                '&:hover fieldset': { borderColor: '#c7d2fe' },
+                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+              },
+            }}
           />
-          <TextField
-            select
-            size="small"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            sx={{ minWidth: 150 }}
-            SelectProps={{ native: true }}
-          >
-            <option value="">All Status</option>
-            <option value="SUCCESS">Success</option>
-            <option value="PENDING">Pending</option>
-            <option value="FAILED">Failed</option>
-          </TextField>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              label="Status"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
+              <MenuItem value="">All Status</MenuItem>
+              <MenuItem value="SUCCESS">Success</MenuItem>
+              <MenuItem value="PENDING">Pending</MenuItem>
+              <MenuItem value="FAILED">Failed</MenuItem>
+            </Select>
+          </FormControl>
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={fetchList}
+              sx={{
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
+                width: 40,
+                height: 40,
+                '&:hover': { bgcolor: '#e0e7ff' },
+              }}
+            >
+              <Refresh sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
           <ExportButtons data={filtered} headers={exportHeaders} filename="payments" />
         </Stack>
       </Paper>
 
-      {/* Table */}
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
-        {isMobile ? (
-          <Stack spacing={2}>
-            {filtered.length > 0 ? filtered.map((payment) => (
-              <Card key={payment.id} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                <CardContent>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Payment sx={{ color: COLORS.sky }} />
-                      <Typography variant="subtitle2" fontWeight={600}>{payment.id?.slice(0, 8)}</Typography>
-                    </Stack>
-                    <Chip label={payment.status} size="small" color={payment.status === 'SUCCESS' ? 'success' : payment.status === 'FAILED' ? 'error' : 'warning'} />
-                  </Stack>
-                  <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">User</Typography>
-                      <Typography variant="body2" fontWeight={500}>{payment.userName || '—'}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">Booking</Typography>
-                      <Typography variant="body2" fontWeight={500}>{payment.bookingId?.slice(0, 8) || '—'}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">Method</Typography>
-                      <Typography variant="body2" fontWeight={500}>{payment.method || '—'}</Typography>
-                    </Box>
-                  </Stack>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6" sx={{ color: COLORS.emerald, fontWeight: 700 }}>₹{payment.amount?.toFixed(2) || '0.00'}</Typography>
-                    <Typography variant="caption">{new Date(payment.createdAt).toLocaleDateString()}</Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            )) : <Typography align="center" color="textSecondary" sx={{ py: 4 }}>No payments found</Typography>}
-          </Stack>
-        ) : (
+      {/* Table / Mobile Cards */}
+      {isMobile ? (
+        renderMobileCards()
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            overflow: 'hidden',
+          }}
+        >
           <DataGrid
             rows={filtered}
             columns={columns}
@@ -224,15 +537,42 @@ const Payments = () => {
             components={{ Toolbar: CustomToolbar }}
             disableSelectionOnClick
             autoHeight
+            rowHeight={64}
             sx={{
-              '& .MuiDataGrid-columnHeaders': { bgcolor: '#F8FAFC', fontWeight: 700, color: '#475569' },
-              '& .MuiDataGrid-row:hover': { bgcolor: '#F0F4FF' },
-              '& .MuiDataGrid-cell': { borderBottom: '1px solid #F1F5F9', padding: '8px' },
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: T.surfaceSoft,
+                fontWeight: 700,
+                color: T.textMuted,
+                fontSize: '0.72rem',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                borderBottom: `1px solid ${T.border}`,
+                minHeight: '48px !important',
+              },
+              '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
+              '& .MuiDataGrid-row': {
+                borderBottom: `1px solid ${T.border}`,
+                transition: 'background-color 0.15s ease',
+              },
+              '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
+              '& .MuiDataGrid-cell': {
+                borderBottom: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                py: 0,
+              },
+              '& .MuiDataGrid-cell:focus': { outline: 'none' },
               '& .MuiDataGrid-columnSeparator': { display: 'none' },
+              '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
+              '& .MuiDataGrid-toolbarContainer': {
+                p: 1,
+                borderBottom: `1px solid ${T.border}`,
+              },
             }}
           />
-        )}
-      </Paper>
+        </Paper>
+      )}
     </Box>
   );
 };

@@ -11,10 +11,10 @@ import {
 } from '@mui/material';
 import {
   Search, Delete, Visibility, Block, LockOpen, Refresh,
-  PersonAdd, VerifiedUser,
+  PersonAdd,
 } from '@mui/icons-material';
 import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
-import { fetchUsers, updateUserStatus, deleteUser, setPage, setLimit } from '../redux/slices/userSlice';
+import { fetchUsers, deleteUser, setPage, setLimit } from '../redux/slices/userSlice';
 import { blockUser, unblockUserByUserId, getBlocks } from '../api/admin';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
@@ -22,21 +22,29 @@ import ExportButtons from '../components/ExportButtons';
 import { getFallbackAvatar, getImageUrl, getDisplayName } from '../utils/imageFallback';
 
 // ═══════════════════════════════════════════════════════════════
-// Theme tokens — consistent with Dashboard/Header/Sidebar
+// DESIGN TOKENS — consistent with Dashboard/Reports
 // ═══════════════════════════════════════════════════════════════
-const COLORS = {
-  border: '#e8ecf3',
-  bgSurface: '#ffffff',
-  bgSoft: '#fafbfd',
-  bgRowHover: '#f5f7fb',
-  textPrimary: '#0f172a',
+const T = {
+  border: '#eef1f6',
+  borderStrong: '#e2e8f0',
+  surface: '#ffffff',
+  surfaceSoft: '#fafbfc',
+  bgRowHover: '#fafbfc',
+  textPrimary: '#0b1220',
   textMuted: '#64748b',
   textFaint: '#94a3b8',
   indigo: '#6366f1',
-  purple: '#8b5cf6',
+  indigoSoft: '#eef2ff',
+  violet: '#8b5cf6',
   emerald: '#10b981',
+  emeraldSoft: '#d1fae5',
   rose: '#f43f5e',
+  roseSoft: '#ffe4e6',
   amber: '#f59e0b',
+  amberSoft: '#fef3c7',
+  sky: '#0ea5e9',
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
 const ROLE_STYLES = {
@@ -47,7 +55,7 @@ const ROLE_STYLES = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// UserAvatar — gradient fallback
+// USER AVATAR
 // ═══════════════════════════════════════════════════════════════
 const UserAvatar = ({ user, size = 40 }) => {
   const displayName = getDisplayName(user);
@@ -91,8 +99,7 @@ const UserAvatar = ({ user, size = 40 }) => {
 
 const getFullName = (user) => {
   if (user.fullName) return user.fullName;
-  if (user.firstName && user.lastName)
-    return `${user.firstName} ${user.lastName}`;
+  if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
   if (user.firstName) return user.firstName;
   if (user.name) return user.name;
   return '—';
@@ -110,9 +117,8 @@ const Users = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { items, total, loading, pagination } = useSelector(
-    (state) => state.users
-  );
+  const { items, loading, pagination } = useSelector((state) => state.users);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -162,11 +168,8 @@ const Users = () => {
     fetchUsersList();
   }, [dispatch, pagination.page, pagination.limit, searchTerm, roleFilter, statusFilter]);
 
-  // Auto-refresh every 20 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchUsersList();
-    }, 20000);
+    const interval = setInterval(() => fetchUsersList(), 20000);
     return () => clearInterval(interval);
   }, [pagination.page, pagination.limit, searchTerm, roleFilter, statusFilter]);
 
@@ -234,19 +237,17 @@ const Users = () => {
       flex: 1.2,
       minWidth: 140,
       renderCell: (params) => (
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              color: COLORS.textPrimary,
-              lineHeight: 1.2,
-            }}
-            noWrap
-          >
-            {getFullName(params.row)}
-          </Typography>
-        </Box>
+        <Typography
+          sx={{
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            color: T.textPrimary,
+            lineHeight: 1.2,
+          }}
+          noWrap
+        >
+          {getFullName(params.row)}
+        </Typography>
       ),
     },
     {
@@ -255,10 +256,7 @@ const Users = () => {
       flex: 1.5,
       minWidth: 180,
       renderCell: (params) => (
-        <Typography
-          sx={{ fontSize: '0.78rem', color: COLORS.textMuted }}
-          noWrap
-        >
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
           {params.row.email || '—'}
         </Typography>
       ),
@@ -269,10 +267,7 @@ const Users = () => {
       flex: 1,
       minWidth: 120,
       renderCell: (params) => (
-        <Typography
-          sx={{ fontSize: '0.78rem', color: COLORS.textMuted }}
-          noWrap
-        >
+        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
           {params.row.phone || '—'}
         </Typography>
       ),
@@ -315,7 +310,7 @@ const Users = () => {
         const bg = isBlocked
           ? '#fee2e2'
           : params.row.isActive
-          ? '#d1fae5'
+          ? T.emeraldSoft
           : '#f1f5f9';
         const color = isBlocked
           ? '#dc2626'
@@ -344,7 +339,7 @@ const Users = () => {
       flex: 0.8,
       minWidth: 100,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.75rem', color: COLORS.textMuted }}>
+        <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
           {new Date(params.row.createdAt).toLocaleDateString('en-IN', {
             day: '2-digit',
             month: 'short',
@@ -368,8 +363,8 @@ const Users = () => {
                 size="small"
                 onClick={() => navigate(`/users/${params.row.id}`)}
                 sx={{
-                  bgcolor: '#eef2ff',
-                  color: COLORS.indigo,
+                  bgcolor: T.indigoSoft,
+                  color: T.indigo,
                   '&:hover': { bgcolor: '#e0e7ff' },
                   width: 32,
                   height: 32,
@@ -385,7 +380,7 @@ const Users = () => {
                   size="small"
                   onClick={() => setBlockConfirm(params.row.id)}
                   sx={{
-                    bgcolor: '#fef3c7',
+                    bgcolor: T.amberSoft,
                     color: '#b45309',
                     '&:hover': { bgcolor: '#fde68a' },
                     width: 32,
@@ -401,7 +396,7 @@ const Users = () => {
                   size="small"
                   onClick={() => setUnblockConfirm(params.row.id)}
                   sx={{
-                    bgcolor: '#d1fae5',
+                    bgcolor: T.emeraldSoft,
                     color: '#059669',
                     '&:hover': { bgcolor: '#a7f3d0' },
                     width: 32,
@@ -418,8 +413,8 @@ const Users = () => {
                 size="small"
                 onClick={() => setDeleteConfirm(params.row.id)}
                 sx={{
-                  bgcolor: '#fee2e2',
-                  color: COLORS.rose,
+                  bgcolor: T.roseSoft,
+                  color: T.rose,
                   '&:hover': { bgcolor: '#fecaca' },
                   width: 32,
                   height: 32,
@@ -448,30 +443,25 @@ const Users = () => {
               key={user.id}
               elevation={0}
               sx={{
-                borderRadius: 3,
-                border: `1px solid ${COLORS.border}`,
-                bgcolor: COLORS.bgSurface,
+                borderRadius: T.radius,
+                border: `1px solid ${T.border}`,
+                bgcolor: T.surface,
                 p: 2,
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  boxShadow: '0 8px 20px -8px rgba(15,23,42,0.12)',
-                  borderColor: 'transparent',
+                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                  borderColor: T.borderStrong,
                 },
               }}
             >
-              <Stack
-                direction="row"
-                alignItems="center"
-                spacing={1.5}
-                sx={{ mb: 1.5 }}
-              >
+              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
                 <UserAvatar user={user} size={44} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     sx={{
-                      fontSize: '0.9rem',
+                      fontSize: '0.88rem',
                       fontWeight: 700,
-                      color: COLORS.textPrimary,
+                      color: T.textPrimary,
                       lineHeight: 1.2,
                     }}
                     noWrap
@@ -479,11 +469,7 @@ const Users = () => {
                     {getFullName(user)}
                   </Typography>
                   <Typography
-                    sx={{
-                      fontSize: '0.72rem',
-                      color: COLORS.textMuted,
-                      mt: 0.2,
-                    }}
+                    sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.2 }}
                     noWrap
                   >
                     {user.email || '—'}
@@ -507,25 +493,16 @@ const Users = () => {
                 direction="row"
                 justifyContent="space-between"
                 alignItems="center"
-                sx={{
-                  pt: 1.5,
-                  borderTop: `1px solid ${COLORS.border}`,
-                }}
+                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
               >
                 <Chip
-                  label={
-                    isBlocked
-                      ? 'Blocked'
-                      : user.isActive
-                      ? 'Active'
-                      : 'Inactive'
-                  }
+                  label={isBlocked ? 'Blocked' : user.isActive ? 'Active' : 'Inactive'}
                   size="small"
                   sx={{
                     bgcolor: isBlocked
                       ? '#fee2e2'
                       : user.isActive
-                      ? '#d1fae5'
+                      ? T.emeraldSoft
                       : '#f1f5f9',
                     color: isBlocked
                       ? '#dc2626'
@@ -542,12 +519,7 @@ const Users = () => {
                   <IconButton
                     size="small"
                     onClick={() => navigate(`/users/${user.id}`)}
-                    sx={{
-                      bgcolor: '#eef2ff',
-                      color: COLORS.indigo,
-                      width: 30,
-                      height: 30,
-                    }}
+                    sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
                   >
                     <Visibility sx={{ fontSize: 15 }} />
                   </IconButton>
@@ -555,12 +527,7 @@ const Users = () => {
                     <IconButton
                       size="small"
                       onClick={() => setBlockConfirm(user.id)}
-                      sx={{
-                        bgcolor: '#fef3c7',
-                        color: '#b45309',
-                        width: 30,
-                        height: 30,
-                      }}
+                      sx={{ bgcolor: T.amberSoft, color: '#b45309', width: 30, height: 30 }}
                     >
                       <Block sx={{ fontSize: 15 }} />
                     </IconButton>
@@ -568,12 +535,7 @@ const Users = () => {
                     <IconButton
                       size="small"
                       onClick={() => setUnblockConfirm(user.id)}
-                      sx={{
-                        bgcolor: '#d1fae5',
-                        color: '#059669',
-                        width: 30,
-                        height: 30,
-                      }}
+                      sx={{ bgcolor: T.emeraldSoft, color: '#059669', width: 30, height: 30 }}
                     >
                       <LockOpen sx={{ fontSize: 15 }} />
                     </IconButton>
@@ -581,12 +543,7 @@ const Users = () => {
                   <IconButton
                     size="small"
                     onClick={() => setDeleteConfirm(user.id)}
-                    sx={{
-                      bgcolor: '#fee2e2',
-                      color: COLORS.rose,
-                      width: 30,
-                      height: 30,
-                    }}
+                    sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
                   >
                     <Delete sx={{ fontSize: 15 }} />
                   </IconButton>
@@ -600,13 +557,13 @@ const Users = () => {
           elevation={0}
           sx={{
             p: 4,
-            borderRadius: 3,
-            border: `1px dashed ${COLORS.border}`,
+            borderRadius: T.radius,
+            border: `1px dashed ${T.border}`,
             textAlign: 'center',
           }}
         >
-          <PersonAdd sx={{ fontSize: 40, color: COLORS.textFaint, mb: 1 }} />
-          <Typography sx={{ color: COLORS.textFaint, fontWeight: 500 }}>
+          <PersonAdd sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
+          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
             No users found
           </Typography>
         </Paper>
@@ -615,27 +572,23 @@ const Users = () => {
   );
 
   return (
-    <Box className="fade-in" sx={{ p: { xs: 2, md: 3 } }}>
-      <PanelHeader eyebrow="User Management" title="All Users" />
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+      <Box sx={{ mb: 3 }}>
+        <PanelHeader eyebrow="User Management" title="All Users" />
+      </Box>
 
-      {/* ═══════════════════════════════════════════
-          Filters
-          ═══════════════════════════════════════════ */}
+      {/* ═══════ Filters ═══════ */}
       <Paper
         elevation={0}
         sx={{
           p: 2,
-          borderRadius: 3,
-          border: `1px solid ${COLORS.border}`,
-          bgcolor: COLORS.bgSurface,
-          mb: 2,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          mb: 2.5,
         }}
       >
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          alignItems="center"
-        >
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
           <TextField
             fullWidth
             placeholder="Search by name, email, or phone..."
@@ -646,7 +599,7 @@ const Users = () => {
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search sx={{ fontSize: 18, color: COLORS.textFaint }} />
+                    <Search sx={{ fontSize: 18, color: T.textFaint }} />
                   </InputAdornment>
                 ),
               },
@@ -654,13 +607,10 @@ const Users = () => {
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
-                bgcolor: COLORS.bgSoft,
-                '& fieldset': { borderColor: COLORS.border },
+                bgcolor: T.surfaceSoft,
+                '& fieldset': { borderColor: T.border },
                 '&:hover fieldset': { borderColor: '#c7d2fe' },
-                '&.Mui-focused fieldset': {
-                  borderColor: COLORS.indigo,
-                  borderWidth: 1.5,
-                },
+                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
               },
             }}
           />
@@ -671,7 +621,7 @@ const Users = () => {
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               label="Role"
-              sx={{ borderRadius: 2, bgcolor: COLORS.bgSoft }}
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
             >
               <MenuItem value="ALL">All Roles</MenuItem>
               <MenuItem value="USER">User</MenuItem>
@@ -687,7 +637,7 @@ const Users = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               label="Status"
-              sx={{ borderRadius: 2, bgcolor: COLORS.bgSoft }}
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
             >
               <MenuItem value="ALL">All Status</MenuItem>
               <MenuItem value="true">Active</MenuItem>
@@ -699,8 +649,8 @@ const Users = () => {
             <IconButton
               onClick={fetchUsersList}
               sx={{
-                bgcolor: '#eef2ff',
-                color: COLORS.indigo,
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
                 width: 40,
                 height: 40,
                 '&:hover': { bgcolor: '#e0e7ff' },
@@ -714,9 +664,7 @@ const Users = () => {
         </Stack>
       </Paper>
 
-      {/* ═══════════════════════════════════════════
-          Table / Cards
-          ═══════════════════════════════════════════ */}
+      {/* ═══════ Table / Cards ═══════ */}
       {isMobile ? (
         loading ? <Loader /> : renderMobileCards()
       ) : (
@@ -724,9 +672,9 @@ const Users = () => {
           elevation={0}
           sx={{
             p: 1,
-            borderRadius: 3,
-            border: `1px solid ${COLORS.border}`,
-            bgcolor: COLORS.bgSurface,
+            borderRadius: T.radius,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
             overflow: 'hidden',
           }}
         >
@@ -748,25 +696,21 @@ const Users = () => {
               sx={{
                 border: 'none',
                 '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: COLORS.bgSoft,
+                  bgcolor: T.surfaceSoft,
                   fontWeight: 700,
-                  color: COLORS.textMuted,
+                  color: T.textMuted,
                   fontSize: '0.72rem',
                   letterSpacing: '0.05em',
                   textTransform: 'uppercase',
-                  borderBottom: `1px solid ${COLORS.border}`,
+                  borderBottom: `1px solid ${T.border}`,
                   minHeight: '48px !important',
                 },
-                '& .MuiDataGrid-columnHeaderTitle': {
-                  fontWeight: 700,
-                },
+                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
                 '& .MuiDataGrid-row': {
-                  borderBottom: `1px solid ${COLORS.border}`,
+                  borderBottom: `1px solid ${T.border}`,
                   transition: 'background-color 0.15s ease',
                 },
-                '& .MuiDataGrid-row:hover': {
-                  bgcolor: COLORS.bgRowHover,
-                },
+                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
                 '& .MuiDataGrid-cell': {
                   borderBottom: 'none',
                   display: 'flex',
@@ -775,12 +719,10 @@ const Users = () => {
                 },
                 '& .MuiDataGrid-cell:focus': { outline: 'none' },
                 '& .MuiDataGrid-columnSeparator': { display: 'none' },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: `1px solid ${COLORS.border}`,
-                },
+                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
                 '& .MuiDataGrid-toolbarContainer': {
                   p: 1,
-                  borderBottom: `1px solid ${COLORS.border}`,
+                  borderBottom: `1px solid ${T.border}`,
                 },
               }}
             />
@@ -788,20 +730,16 @@ const Users = () => {
         </Paper>
       )}
 
-      {/* ═══════════════════════════════════════════
-          Dialogs
-          ═══════════════════════════════════════════ */}
+      {/* ═══════ Dialogs ═══════ */}
       <Dialog
         open={!!deleteConfirm}
         onClose={() => !processing && setDeleteConfirm(null)}
-        PaperProps={{
-          sx: { borderRadius: 3, p: 0.5 },
-        }}
+        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
-            color: COLORS.textPrimary,
+            color: T.textPrimary,
             fontSize: '1.05rem',
             display: 'flex',
             alignItems: 'center',
@@ -813,8 +751,8 @@ const Users = () => {
               width: 32,
               height: 32,
               borderRadius: 1.5,
-              bgcolor: '#fee2e2',
-              color: COLORS.rose,
+              bgcolor: T.roseSoft,
+              color: T.rose,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -826,21 +764,16 @@ const Users = () => {
         </DialogTitle>
         <Divider />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: COLORS.textMuted }}>
-            This will permanently delete the user and all associated data
-            (profile, wallet, bookings, reviews, chats). This action cannot be
-            undone.
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+            This will permanently delete the user and all associated data (profile,
+            wallet, bookings, reviews, chats). This action cannot be undone.
           </Typography>
         </Box>
         <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
           <Button
             onClick={() => setDeleteConfirm(null)}
             disabled={processing}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              color: COLORS.textMuted,
-            }}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
           >
             Cancel
           </Button>
@@ -852,16 +785,12 @@ const Users = () => {
               textTransform: 'none',
               fontWeight: 700,
               borderRadius: 2,
-              bgcolor: COLORS.rose,
+              bgcolor: T.rose,
               '&:hover': { bgcolor: '#e11d48' },
               boxShadow: 'none',
             }}
           >
-            {processing ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
-            ) : (
-              'Delete User'
-            )}
+            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete User'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -869,12 +798,12 @@ const Users = () => {
       <Dialog
         open={!!blockConfirm}
         onClose={() => !processing && setBlockConfirm(null)}
-        PaperProps={{ sx: { borderRadius: 3, p: 0.5 } }}
+        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
-            color: COLORS.textPrimary,
+            color: T.textPrimary,
             fontSize: '1.05rem',
             display: 'flex',
             alignItems: 'center',
@@ -886,7 +815,7 @@ const Users = () => {
               width: 32,
               height: 32,
               borderRadius: 1.5,
-              bgcolor: '#fef3c7',
+              bgcolor: T.amberSoft,
               color: '#b45309',
               display: 'flex',
               alignItems: 'center',
@@ -899,7 +828,7 @@ const Users = () => {
         </DialogTitle>
         <Divider />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: COLORS.textMuted }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
             The user won't be able to log in or access the platform.
           </Typography>
         </Box>
@@ -907,11 +836,7 @@ const Users = () => {
           <Button
             onClick={() => setBlockConfirm(null)}
             disabled={processing}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              color: COLORS.textMuted,
-            }}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
           >
             Cancel
           </Button>
@@ -923,16 +848,12 @@ const Users = () => {
               textTransform: 'none',
               fontWeight: 700,
               borderRadius: 2,
-              bgcolor: COLORS.amber,
+              bgcolor: T.amber,
               '&:hover': { bgcolor: '#d97706' },
               boxShadow: 'none',
             }}
           >
-            {processing ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
-            ) : (
-              'Block'
-            )}
+            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Block'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -940,12 +861,12 @@ const Users = () => {
       <Dialog
         open={!!unblockConfirm}
         onClose={() => !processing && setUnblockConfirm(null)}
-        PaperProps={{ sx: { borderRadius: 3, p: 0.5 } }}
+        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
-            color: COLORS.textPrimary,
+            color: T.textPrimary,
             fontSize: '1.05rem',
             display: 'flex',
             alignItems: 'center',
@@ -957,7 +878,7 @@ const Users = () => {
               width: 32,
               height: 32,
               borderRadius: 1.5,
-              bgcolor: '#d1fae5',
+              bgcolor: T.emeraldSoft,
               color: '#059669',
               display: 'flex',
               alignItems: 'center',
@@ -970,7 +891,7 @@ const Users = () => {
         </DialogTitle>
         <Divider />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: COLORS.textMuted }}>
+          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
             The user will be able to access the platform again.
           </Typography>
         </Box>
@@ -978,11 +899,7 @@ const Users = () => {
           <Button
             onClick={() => setUnblockConfirm(null)}
             disabled={processing}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              color: COLORS.textMuted,
-            }}
+            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
           >
             Cancel
           </Button>
@@ -994,16 +911,12 @@ const Users = () => {
               textTransform: 'none',
               fontWeight: 700,
               borderRadius: 2,
-              bgcolor: COLORS.emerald,
+              bgcolor: T.emerald,
               '&:hover': { bgcolor: '#059669' },
               boxShadow: 'none',
             }}
           >
-            {processing ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
-            ) : (
-              'Unblock'
-            )}
+            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Unblock'}
           </Button>
         </DialogActions>
       </Dialog>
