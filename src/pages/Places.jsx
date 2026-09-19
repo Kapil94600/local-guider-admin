@@ -1,19 +1,26 @@
-import { useState, useEffect, useCallback } from 'react';
+// src/pages/Places.jsx
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getImageUrlGeneric, getFallbackPlaceholder } from '../utils/imageFallback';
 import {
   Box, Paper, Typography, TextField, Select, MenuItem, FormControl,
   InputLabel, Button, IconButton, Chip, Switch, Dialog, DialogTitle,
-  DialogContent, DialogActions, CircularProgress, Grid, Alert,
+  DialogContent, DialogActions, CircularProgress, Grid,
   InputAdornment, Stack, Tooltip,
 } from '@mui/material';
-import { Search, Add, Edit, Delete, Visibility, Star, LocationOn, Place as PlaceIcon } from '@mui/icons-material';
+import {
+  Search, Add, Edit, Delete, Visibility, Star, LocationOn,
+  Place as PlaceIcon, PhotoLibrary,
+} from '@mui/icons-material';
 import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
 import { fetchPlaces, createPlace, updatePlace, deletePlace, setPage, setLimit } from '../redux/slices/placeSlice';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
-import { COLORS, FONT_BODY, FONT_DISPLAY } from '../theme/dashboardTheme';
+import GalleryManager from '../components/GalleryManager';
+import { replacePlaceGallery } from '../api/admin';
+import { COLORS, FONT_DISPLAY } from '../theme/dashboardTheme';
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -50,7 +57,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
   const [formData, setFormData] = useState({
     name: '', description: '', category: '', address: '', city: '',
     state: '', country: '', latitude: '', longitude: '', image: '',
-    gallery: [], openingTime: '', closingTime: '', isFeatured: false, isActive: true,
+    openingTime: '', closingTime: '', isFeatured: false, isActive: true,
   });
 
   useEffect(() => {
@@ -60,7 +67,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
         category: place.category || '', address: place.address || '',
         city: place.city || '', state: place.state || '', country: place.country || '',
         latitude: place.latitude || '', longitude: place.longitude || '',
-        image: place.image || '', gallery: place.gallery || [],
+        image: place.image || '',
         openingTime: place.openingTime || '', closingTime: place.closingTime || '',
         isFeatured: place.isFeatured || false, isActive: place.isActive ?? true,
       });
@@ -68,7 +75,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
       setFormData({
         name: '', description: '', category: '', address: '', city: '',
         state: '', country: '', latitude: '', longitude: '', image: '',
-        gallery: [], openingTime: '', closingTime: '', isFeatured: false, isActive: true,
+        openingTime: '', closingTime: '', isFeatured: false, isActive: true,
       });
     }
   }, [place, open]);
@@ -94,8 +101,23 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
       <DialogContent dividers sx={{ p: 3 }}>
         <Grid container spacing={2.5}>
           <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Place Name" name="name" value={formData.name} onChange={handleChange} required
-              InputProps={{ startAdornment: <InputAdornment position="start"><PlaceIcon fontSize="small" /></InputAdornment> }} />
+            <TextField
+              fullWidth
+              label="Place Name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PlaceIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
           </Grid>
           <Grid item xs={12} md={6}>
             <CategorySelect value={formData.category} onChange={(e) => handleChange({ target: { name: 'category', value: e.target.value } })} />
@@ -104,8 +126,22 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             <TextField fullWidth label="Description" name="description" value={formData.description} onChange={handleChange} multiline rows={3} />
           </Grid>
           <Grid item xs={12}>
-            <TextField fullWidth label="Address" name="address" value={formData.address} onChange={handleChange}
-              InputProps={{ startAdornment: <InputAdornment position="start"><LocationOn fontSize="small" /></InputAdornment> }} />
+            <TextField
+              fullWidth
+              label="Address"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LocationOn fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
           </Grid>
           <Grid item xs={4}>
             <TextField fullWidth label="City" name="city" value={formData.city} onChange={handleChange} required />
@@ -132,13 +168,13 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             <TextField fullWidth label="Closing Time" name="closingTime" value={formData.closingTime} onChange={handleChange} placeholder="06:00 PM" />
           </Grid>
           <Grid item xs={6}>
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" sx={{ alignItems: 'center' }} spacing={1}>
               <Typography variant="body2">Featured</Typography>
               <Switch checked={formData.isFeatured} onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))} />
             </Stack>
           </Grid>
           <Grid item xs={6}>
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" sx={{ alignItems: 'center' }} spacing={1}>
               <Typography variant="body2">Active</Typography>
               <Switch checked={formData.isActive} onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))} />
             </Stack>
@@ -148,7 +184,11 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
       <DialogActions sx={{ padding: 2, borderTop: '1px solid #E2E8F0' }}>
         <Button onClick={onClose} color="inherit">Cancel</Button>
         <Button onClick={handleSubmit} variant="contained" disabled={saving}
-          sx={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }, px: 4 }}>
+          sx={{
+            background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+            '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' },
+            px: 4
+          }}>
           {saving ? <CircularProgress size={20} /> : 'Save Place'}
         </Button>
       </DialogActions>
@@ -169,20 +209,24 @@ const Places = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
+  // ✅ Gallery Dialog State
+  const [galleryDialog, setGalleryDialog] = useState({ open: false, place: null });
+
   useEffect(() => {
     dispatch(fetchPlaces({ page: pagination.page, limit: pagination.limit }));
   }, [dispatch, pagination.page, pagination.limit]);
 
-  // ✅ Client-side filtering
   const filteredPlaces = (items || []).filter((item) => {
-    const matchesSearch = !searchTerm || item.name?.toLowerCase().includes(searchTerm.toLowerCase()) || item.city?.toLowerCase().includes(searchTerm.toLowerCase()) || item.category?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm ||
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCity = !filterCity || item.city?.toLowerCase() === filterCity.toLowerCase();
     const matchesCategory = !filterCategory || item.category?.toLowerCase() === filterCategory.toLowerCase();
     const matchesStatus = filterStatus === '' || (filterStatus === 'true' ? item.isActive === true : item.isActive === false);
     return matchesSearch && matchesCity && matchesCategory && matchesStatus;
   });
 
-  // ✅ Unique cities for dropdown
   const uniqueCities = [...new Set((items || []).map(item => item.city).filter(Boolean))];
 
   const handleSave = async (data) => {
@@ -214,6 +258,17 @@ const Places = () => {
     }
   };
 
+  // ✅ Gallery save handler
+  const handleGallerySave = async (images) => {
+    if (!galleryDialog.place) return;
+    await replacePlaceGallery(galleryDialog.place.id, images);
+    dispatch(fetchPlaces({ page: pagination.page, limit: pagination.limit }));
+    setGalleryDialog((prev) => ({
+      ...prev,
+      place: { ...prev.place, gallery: images },
+    }));
+  };
+
   const columns = [
     {
       field: 'image',
@@ -221,16 +276,43 @@ const Places = () => {
       flex: 0.6,
       minWidth: 80,
       renderCell: (params) => (
-        <img src={params.row.image || 'https://via.placeholder.com/60'} alt="" style={{ width: 50, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+        <img
+          src={getImageUrlGeneric(params.row.image, params.row.name || 'No Image')}
+          alt={params.row.name || ''}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = getFallbackPlaceholder('No Image');
+          }}
+          style={{
+            width: 50,
+            height: 40,
+            borderRadius: 8,
+            objectFit: 'cover',
+            background: '#F1F5F9',
+          }}
+        />
       ),
     },
-    { field: 'name', headerName: 'Name', flex: 1.5, minWidth: 150, renderCell: (params) => <Typography fontWeight={600}>{params.row.name}</Typography> },
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1.5,
+      minWidth: 150,
+      renderCell: (params) => <Typography fontWeight={600}>{params.row.name}</Typography>
+    },
     {
       field: 'category',
       headerName: 'Category',
       flex: 1,
       minWidth: 120,
-      renderCell: (params) => <Chip label={params.row.category ? params.row.category.charAt(0).toUpperCase() + params.row.category.slice(1) : 'N/A'} size="small" color="primary" variant="outlined" />,
+      renderCell: (params) => (
+        <Chip
+          label={params.row.category ? params.row.category.charAt(0).toUpperCase() + params.row.category.slice(1) : 'N/A'}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      ),
     },
     {
       field: 'rating',
@@ -238,34 +320,76 @@ const Places = () => {
       flex: 0.8,
       minWidth: 100,
       renderCell: (params) => (
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Stack direction="row" sx={{ alignItems: 'center' }} spacing={0.5}>
           <Star sx={{ fontSize: 16, color: '#F59E0B' }} />
           <Typography variant="body2">{params.row.rating || 0}</Typography>
         </Stack>
       ),
     },
     {
+      field: 'gallery',
+      headerName: 'Gallery',
+      flex: 0.7,
+      minWidth: 100,
+      renderCell: (params) => {
+        const count = (params.row.gallery || []).length;
+        return (
+          <Chip
+            label={`${count} img`}
+            size="small"
+            color={count > 0 ? 'success' : 'default'}
+            variant="outlined"
+            onClick={() => setGalleryDialog({ open: true, place: params.row })}
+            sx={{ cursor: 'pointer' }}
+          />
+        );
+      },
+    },
+    {
       field: 'isActive',
       headerName: 'Active',
       flex: 0.6,
       minWidth: 80,
-      renderCell: (params) => <Chip label={params.row.isActive ? 'Yes' : 'No'} size="small" color={params.row.isActive ? 'success' : 'default'} />,
+      renderCell: (params) => (
+        <Chip
+          label={params.row.isActive ? 'Yes' : 'No'}
+          size="small"
+          color={params.row.isActive ? 'success' : 'default'}
+        />
+      ),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      flex: 0.8,
-      minWidth: 120,
+      flex: 1.2,
+      minWidth: 180,
       renderCell: (params) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="View">
-            <IconButton onClick={() => navigate(`/places/${params.row.id}`)} sx={{ color: COLORS.sky }}><Visibility /></IconButton>
+            <IconButton onClick={() => navigate(`/places/${params.row.id}`)} sx={{ color: COLORS.sky }}>
+              <Visibility />
+            </IconButton>
           </Tooltip>
+
+          <Tooltip title="Gallery">
+            <IconButton
+              onClick={() => setGalleryDialog({ open: true, place: params.row })}
+              sx={{ color: '#8B5CF6' }}
+            >
+              <PhotoLibrary />
+            </IconButton>
+          </Tooltip>
+
           <Tooltip title="Edit">
-            <IconButton onClick={() => { setEditPlace(params.row); setModalOpen(true); }} sx={{ color: COLORS.skyDark }}><Edit /></IconButton>
+            <IconButton onClick={() => { setEditPlace(params.row); setModalOpen(true); }} sx={{ color: COLORS.skyDark }}>
+              <Edit />
+            </IconButton>
           </Tooltip>
+
           <Tooltip title="Delete">
-            <IconButton onClick={() => setDeleteConfirm(params.row.id)} sx={{ color: COLORS.rose }}><Delete /></IconButton>
+            <IconButton onClick={() => setDeleteConfirm(params.row.id)} sx={{ color: COLORS.rose }}>
+              <Delete />
+            </IconButton>
           </Tooltip>
         </Stack>
       ),
@@ -276,21 +400,31 @@ const Places = () => {
     <Box className="fade-in" sx={{ bgcolor: COLORS.bgBase, p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
       <PanelHeader eyebrow="Places" title="Places Management" />
 
-      {/* ✅ Filters UI – FIXED WIDTH input boxes */}
+      {/* Filters + Add Button */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: `1px solid ${COLORS.border}`, bgcolor: COLORS.bgSurface, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
-          {/* Search Box – Fixed Width 300px */}
-          <TextField 
-            placeholder="Search places..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
+          <TextField
+            placeholder="Search places..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
-            sx={{ width: '300px' }}  // ✅ FIXED WIDTH
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} 
+            sx={{ width: '300px' }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
 
-          {/* City Dropdown – Fixed Width 180px */}
-          <FormControl size="small" sx={{ width: '180px' }}>  {/* ✅ FIXED WIDTH */}
+          <FormControl size="small" sx={{ width: '180px' }}>
             <InputLabel>City</InputLabel>
             <Select value={filterCity} onChange={(e) => setFilterCity(e.target.value)} label="City">
               <MenuItem value="">All Cities</MenuItem>
@@ -300,13 +434,11 @@ const Places = () => {
             </Select>
           </FormControl>
 
-          {/* Category Dropdown – Fixed Width 180px */}
-          <Box sx={{ width: '180px' }}>  {/* ✅ FIXED WIDTH */}
+          <Box sx={{ width: '180px' }}>
             <CategorySelect value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} size="small" />
           </Box>
 
-          {/* Status Dropdown – Fixed Width 180px */}
-          <FormControl size="small" sx={{ width: '180px' }}>  {/* ✅ FIXED WIDTH */}
+          <FormControl size="small" sx={{ width: '180px' }}>
             <InputLabel>Status</InputLabel>
             <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} label="Status">
               <MenuItem value="">All Status</MenuItem>
@@ -315,20 +447,19 @@ const Places = () => {
             </Select>
           </FormControl>
 
-          {/* Add Place Button – Fixed Width 150px */}
-          <Button 
-            variant="contained" 
-            startIcon={<Add />} 
+          <Button
+            variant="contained"
+            startIcon={<Add />}
             onClick={() => { setEditPlace(null); setModalOpen(true); }}
-            sx={{ 
-              width: '150px',  // ✅ FIXED WIDTH
-              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', 
-              '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }, 
-              py: 1, 
-              borderRadius: 2, 
-              fontWeight: 700, 
-              fontSize: '0.85rem', 
-              whiteSpace: 'nowrap' 
+            sx={{
+              width: '150px',
+              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+              '&:hover': { background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' },
+              py: 1,
+              borderRadius: 2,
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              whiteSpace: 'nowrap'
             }}
           >
             Add Place
@@ -336,6 +467,7 @@ const Places = () => {
         </Stack>
       </Paper>
 
+      {/* Table */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: `1px solid ${COLORS.border}`, bgcolor: COLORS.bgSurface }}>
         {loading ? <Loader /> : (
           <DataGrid
@@ -359,8 +491,46 @@ const Places = () => {
         )}
       </Paper>
 
-      <PlaceModal open={modalOpen} onClose={() => setModalOpen(false)} place={editPlace} onSave={handleSave} saving={saving} />
+      {/* ✅ GALLERY DIALOG */}
+      <Dialog
+        open={galleryDialog.open}
+        onClose={() => setGalleryDialog({ open: false, place: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid #E2E8F0' }}>
+          📷 Gallery — {galleryDialog.place?.name || ''}
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {galleryDialog.place && (
+            <GalleryManager
+              entityId={galleryDialog.place.id}
+              entityType="PLACE"
+              initialImages={galleryDialog.place.gallery || []}
+              canUpload={true}
+              canDelete={true}
+              onSave={handleGallerySave}
+              title="Place Gallery"
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setGalleryDialog({ open: false, place: null })} color="inherit">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
+      {/* Edit/Add Modal */}
+      <PlaceModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        place={editPlace}
+        onSave={handleSave}
+        saving={saving}
+      />
+
+      {/* Delete Confirm */}
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
         <DialogTitle>Delete Place?</DialogTitle>
         <DialogActions>

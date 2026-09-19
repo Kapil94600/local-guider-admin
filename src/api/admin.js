@@ -120,4 +120,30 @@ export const getWallets = (params) => apiClient.get('/wallet/all', { params });
 export const updateWalletBalance = (userId, data) =>
   apiClient.put(`/wallet/${userId}/balance`, data);
 
-// ✅ Favorites — REMOVED (favorites feature removed from admin panel)
+// ═══════════════════════════════════════════
+// ✅ GALLERY - Place / Guider / Photographer
+// ═══════════════════════════════════════════
+
+// Place Gallery (Admin full control)
+export const addPlaceGalleryImage = (placeId, imageUrl) =>
+  apiClient.post(`/places/${placeId}/gallery`, { imageUrl });
+export const removePlaceGalleryImage = (placeId, imageUrl) =>
+  apiClient.delete(`/places/${placeId}/gallery`, { data: { imageUrl } });
+export const replacePlaceGallery = (placeId, images) =>
+  apiClient.put(`/places/${placeId}/gallery`, { images });
+
+// Guider Gallery (Owner uploads, admin deletes)
+export const addGuiderGalleryImage = (guiderId, imageUrl) =>
+  apiClient.post(`/guiders/${guiderId}/gallery`, { imageUrl });
+export const removeGuiderGalleryImage = (guiderId, imageUrl) =>
+  apiClient.delete(`/guiders/${guiderId}/gallery`, { data: { imageUrl } });
+export const replaceGuiderGallery = (guiderId, images) =>
+  apiClient.put(`/guiders/${guiderId}/gallery`, { images });
+
+// Photographer Gallery (Owner uploads, admin deletes)
+export const addPhotographerGalleryImage = (photographerId, imageUrl) =>
+  apiClient.post(`/photographers/${photographerId}/gallery`, { imageUrl });
+export const removePhotographerGalleryImage = (photographerId, imageUrl) =>
+  apiClient.delete(`/photographers/${photographerId}/gallery`, { data: { imageUrl } });
+export const replacePhotographerGallery = (photographerId, images) =>
+  apiClient.put(`/photographers/${photographerId}/gallery`, { images });

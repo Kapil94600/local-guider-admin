@@ -1,23 +1,24 @@
-// src/pages/Guiders.js
+// src/pages/Guiders.jsx
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Box, Paper, Typography, TextField, Button, IconButton, Chip, Avatar,
-  Stack, Tooltip, InputAdornment, Dialog, DialogTitle, DialogActions,
+  Stack, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
   useMediaQuery, useTheme, Card, CardContent, FormControl, Select, MenuItem, InputLabel,
 } from '@mui/material';
-import { Search, Delete, Visibility, Star, Block } from '@mui/icons-material';
+import { Search, Delete, Visibility, Star, Block, PhotoLibrary } from '@mui/icons-material';
 import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
 import { fetchGuiders, updateGuider, deleteGuider, setPage, setLimit } from '../redux/slices/guiderSlice';
 import Loader from '../components/Loader';
 import PanelHeader from '../components/PanelHeader';
-import ExportButtons from '../components/ExportButtons'; // ✅ Add this
+import ExportButtons from '../components/ExportButtons';
+import GalleryManager from '../components/GalleryManager';
+import { removeGuiderGalleryImage } from '../api/admin';
 import { COLORS } from '../theme/dashboardTheme';
-import apiClient from '../api/axios'; // ✅ API client for block
+import apiClient from '../api/axios';
 
-// ----- Helpers with nested user support -----
 const getImageUrl = (path) => {
   if (!path) return 'https://via.placeholder.com/40';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -44,7 +45,6 @@ const getPhone = (guider) => {
   return phone || '—';
 };
 
-// ----- Toolbar -----
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
     <GridToolbarFilterButton />
@@ -52,7 +52,6 @@ const CustomToolbar = () => (
   </GridToolbarContainer>
 );
 
-// ----- Main Component -----
 const Guiders = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -63,22 +62,20 @@ const Guiders = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [blockConfirm, setBlockConfirm] = useState(null);
+  const [galleryDialog, setGalleryDialog] = useState({ open: false, guider: null });
 
-  // ✅ Export headers
-const exportHeaders = [
-  { key: 'profilePhotoUrl', label: 'Photo', isImage: true },
-  { key: 'fullName', label: 'Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'experience', label: 'Experience' },
-  { key: 'rating', label: 'Rating' },
-  { key: 'companyName', label: 'Company' },
-  { key: 'location', label: 'Location' },
-  { key: 'isActive', label: 'Status' },
-];
+  const exportHeaders = [
+    { key: 'profilePhotoUrl', label: 'Photo', isImage: true },
+    { key: 'fullName', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'experience', label: 'Experience' },
+    { key: 'rating', label: 'Rating' },
+    { key: 'companyName', label: 'Company' },
+    { key: 'location', label: 'Location' },
+    { key: 'isActive', label: 'Status' },
+  ];
 
-
-  // ✅ Fetch with status filter
   useEffect(() => {
     const params = {
       page: pagination.page,
@@ -108,7 +105,6 @@ const exportHeaders = [
     }
   };
 
-  // ✅ Block Guider
   const handleBlock = async (guiderId) => {
     try {
       const guider = items.find(g => g.id === guiderId);
@@ -120,7 +116,6 @@ const exportHeaders = [
     }
   };
 
-  // ----- Columns -----
   const columns = [
     {
       field: 'profilePhotoUrl',
@@ -128,46 +123,13 @@ const exportHeaders = [
       flex: 0.5,
       minWidth: 80,
       renderCell: (params) => (
-        <Avatar
-          src={getImageUrl(params.row.profilePhotoUrl || params.row.profileImage)}
-          alt={getFullName(params.row)}
-        />
+        <Avatar src={getImageUrl(params.row.profilePhotoUrl || params.row.profileImage)} alt={getFullName(params.row)} />
       ),
     },
-    {
-      field: 'fullName',
-      headerName: 'Name',
-      flex: 1.2,
-      minWidth: 150,
-      renderCell: (params) => (
-        <Typography fontWeight={600}>{getFullName(params.row)}</Typography>
-      ),
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1.5,
-      minWidth: 180,
-      renderCell: (params) => (
-        <Typography variant="body2">{getEmail(params.row)}</Typography>
-      ),
-    },
-    {
-      field: 'phone',
-      headerName: 'Phone',
-      flex: 1,
-      minWidth: 120,
-      renderCell: (params) => (
-        <Typography variant="body2">{getPhone(params.row)}</Typography>
-      ),
-    },
-    {
-      field: 'experience',
-      headerName: 'Experience',
-      flex: 0.7,
-      minWidth: 100,
-      renderCell: (params) => `${params.row.experience || 0} yrs`,
-    },
+    { field: 'fullName', headerName: 'Name', flex: 1.2, minWidth: 150, renderCell: (params) => <Typography fontWeight={600}>{getFullName(params.row)}</Typography> },
+    { field: 'email', headerName: 'Email', flex: 1.5, minWidth: 180, renderCell: (params) => <Typography variant="body2">{getEmail(params.row)}</Typography> },
+    { field: 'phone', headerName: 'Phone', flex: 1, minWidth: 120, renderCell: (params) => <Typography variant="body2">{getPhone(params.row)}</Typography> },
+    { field: 'experience', headerName: 'Experience', flex: 0.7, minWidth: 100, renderCell: (params) => `${params.row.experience || 0} yrs` },
     {
       field: 'rating',
       headerName: 'Rating',
@@ -198,13 +160,21 @@ const exportHeaders = [
     {
       field: 'actions',
       headerName: 'Actions',
-      flex: 1,
-      minWidth: 150,
+      flex: 1.2,
+      minWidth: 180,
       renderCell: (params) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="View">
             <IconButton onClick={() => navigate(`/guiders/${params.row.id}`)} sx={{ color: COLORS.sky }}>
               <Visibility />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Gallery">
+            <IconButton
+              onClick={() => setGalleryDialog({ open: true, guider: params.row })}
+              sx={{ color: '#8B5CF6' }}
+            >
+              <PhotoLibrary />
             </IconButton>
           </Tooltip>
           <Tooltip title="Block">
@@ -222,24 +192,16 @@ const exportHeaders = [
     },
   ];
 
-  // ----- Mobile Cards -----
   const renderMobileCards = () => (
     <Stack spacing={2}>
       {items?.length > 0 ? items.map((guider) => (
         <Card key={guider.id} sx={{ borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-              <Avatar
-                src={getImageUrl(guider.profilePhotoUrl || guider.profileImage)}
-                alt={getFullName(guider)}
-              />
+              <Avatar src={getImageUrl(guider.profilePhotoUrl || guider.profileImage)} alt={getFullName(guider)} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle1" fontWeight={600} noWrap>
-                  {getFullName(guider)}
-                </Typography>
-                <Typography variant="caption" color="textSecondary" noWrap>
-                  {getEmail(guider)}
-                </Typography>
+                <Typography variant="subtitle1" fontWeight={600} noWrap>{getFullName(guider)}</Typography>
+                <Typography variant="caption" color="textSecondary" noWrap>{getEmail(guider)}</Typography>
               </Box>
               <Chip
                 label={guider.isActive ? 'Active' : 'Inactive'}
@@ -270,6 +232,9 @@ const exportHeaders = [
               <IconButton size="small" onClick={() => navigate(`/guiders/${guider.id}`)} sx={{ color: COLORS.sky }}>
                 <Visibility fontSize="small" />
               </IconButton>
+              <IconButton size="small" onClick={() => setGalleryDialog({ open: true, guider })} sx={{ color: '#8B5CF6' }}>
+                <PhotoLibrary fontSize="small" />
+              </IconButton>
               <IconButton size="small" onClick={() => setBlockConfirm(guider.id)} sx={{ color: '#EF4444' }}>
                 <Block fontSize="small" />
               </IconButton>
@@ -280,9 +245,7 @@ const exportHeaders = [
           </CardContent>
         </Card>
       )) : (
-        <Typography align="center" color="textSecondary" sx={{ py: 4 }}>
-          No guiders found
-        </Typography>
+        <Typography align="center" color="textSecondary" sx={{ py: 4 }}>No guiders found</Typography>
       )}
     </Stack>
   );
@@ -291,7 +254,6 @@ const exportHeaders = [
     <Box className="fade-in" sx={{ p: { xs: 2, md: 3 }, mt: 0, pt: 1 }}>
       <PanelHeader eyebrow="Guiders Management" title="All Guiders" />
 
-      {/* ✅ Search + Status Filter + Export */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: 4, border: '1px solid #e2e8f0', bgcolor: 'white', mb: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ flex: 1 }}>
@@ -306,18 +268,13 @@ const exportHeaders = [
             />
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
-              >
+              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
                 <MenuItem value="ALL">All Status</MenuItem>
                 <MenuItem value="true">Active</MenuItem>
                 <MenuItem value="false">Inactive</MenuItem>
               </Select>
             </FormControl>
           </Stack>
-          {/* ✅ PDF + Excel Export */}
           <ExportButtons data={items} headers={exportHeaders} filename="guiders" />
         </Stack>
       </Paper>
@@ -348,6 +305,38 @@ const exportHeaders = [
           )}
         </Paper>
       )}
+
+      {/* ✅ Gallery Dialog — Delete-only mode */}
+      <Dialog
+        open={galleryDialog.open}
+        onClose={() => setGalleryDialog({ open: false, guider: null })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, borderBottom: '1px solid #E2E8F0' }}>
+          📷 Gallery — {getFullName(galleryDialog.guider || {})}
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {galleryDialog.guider && (
+            <GalleryManager
+              entityId={galleryDialog.guider.id}
+              entityType="GUIDER"
+              initialImages={galleryDialog.guider.gallery || []}
+              canUpload={false}
+              canDelete={true}
+              onDelete={async (imageUrl) => {
+                await removeGuiderGalleryImage(galleryDialog.guider.id, imageUrl);
+              }}
+              title="Portfolio Gallery"
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setGalleryDialog({ open: false, guider: null })} color="inherit">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
         <DialogTitle>Delete Guider?</DialogTitle>
