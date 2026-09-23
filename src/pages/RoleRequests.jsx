@@ -1,96 +1,122 @@
 // src/pages/RoleRequests.jsx
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { toast } from 'react-toastify';
+// ═══════════════════════════════════════════════════════════════
+// ROLE REQUESTS — Auto-refresh + Editable KYC docs
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import {
-  CheckCircle, Cancel, Visibility, Search as SearchIcon,
-  Refresh, Inbox as InboxIcon,
-} from '@mui/icons-material';
+  CheckCircle,
+  Cancel,
+  Visibility,
+  Search as SearchIcon,
+  Refresh,
+  Inbox as InboxIcon,
+  Save as SaveIcon,
+} from "@mui/icons-material";
 import {
-  Box, Paper, Typography, Button, IconButton, Chip, Dialog, DialogTitle,
-  DialogContent, DialogActions, Avatar, Stack, Divider, TextField,
-  Select, MenuItem, FormControl, InputLabel, useMediaQuery, useTheme,
-  InputAdornment, CircularProgress, Tooltip,
-} from '@mui/material';
+  Box,
+  Paper,
+  Typography,
+  Button,
+  IconButton,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Avatar,
+  Stack,
+  Divider,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  useMediaQuery,
+  useTheme,
+  InputAdornment,
+  CircularProgress,
+  Tooltip,
+} from "@mui/material";
 import {
   DataGrid,
   GridToolbarContainer,
   GridToolbarFilterButton,
   GridToolbarExport,
-} from '@mui/x-data-grid';
+} from "@mui/x-data-grid";
 import {
   fetchRoleRequests,
   approveRoleRequest,
   rejectRoleRequest,
   setPage,
   setLimit,
-} from '../redux/slices/roleRequestSlice';
-import Loader from '../components/Loader';
-import PanelHeader from '../components/PanelHeader';
-import apiClient from '../api/axios';
+} from "../redux/slices/roleRequestSlice";
+import { PanelHeader, Loader, ImageInput } from "../components";
+import apiClient from "../api/axios";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS
 // ═══════════════════════════════════════════════════════════════
 const T = {
-  border: '#eef1f6',
-  borderStrong: '#e2e8f0',
-  surface: '#ffffff',
-  surfaceSoft: '#fafbfc',
-  bgRowHover: '#fafbfc',
-  textPrimary: '#0b1220',
-  textMuted: '#64748b',
-  textFaint: '#94a3b8',
-  indigo: '#6366f1',
-  indigoSoft: '#eef2ff',
-  violet: '#8b5cf6',
-  violetSoft: '#ede9fe',
-  emerald: '#10b981',
-  emeraldSoft: '#d1fae5',
-  rose: '#f43f5e',
-  roseSoft: '#ffe4e6',
-  amber: '#f59e0b',
-  amberSoft: '#fef3c7',
-  sky: '#0ea5e9',
-  skySoft: '#e0f2fe',
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  bgRowHover: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  indigoSoft: "#eef2ff",
+  violet: "#8b5cf6",
+  violetSoft: "#ede9fe",
+  emerald: "#10b981",
+  emeraldSoft: "#d1fae5",
+  rose: "#f43f5e",
+  roseSoft: "#ffe4e6",
+  amber: "#f59e0b",
+  amberSoft: "#fef3c7",
+  sky: "#0ea5e9",
+  skySoft: "#e0f2fe",
   radius: 3,
   fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  'https://local-guider-backend.onrender.com/api/v1';
-const SERVER_BASE = API_BASE_URL.replace('/api/v1', '');
+  "https://local-guider-backend.onrender.com/api/v1";
+const SERVER_BASE = API_BASE_URL.replace("/api/v1", "");
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
 const getImageUrl = (path) => {
   if (!path) return null;
-  if (typeof path !== 'string') return null;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.includes('/uploads/')) return null;
-  return `${SERVER_BASE}${path.startsWith('/') ? path : '/' + path}`;
+  if (typeof path !== "string") return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.includes("/uploads/")) return null;
+  return `${SERVER_BASE}${path.startsWith("/") ? path : "/" + path}`;
 };
 
 const ID_TYPE_LABELS = {
-  AADHAAR: 'Aadhaar Card',
-  PAN: 'PAN Card',
-  DRIVING_LICENSE: 'Driving License',
-  VOTER_ID: 'Voter ID',
-  PASSPORT: 'Passport',
-  OTHER: 'Other',
+  AADHAAR: "Aadhaar Card",
+  PAN: "PAN Card",
+  DRIVING_LICENSE: "Driving License",
+  VOTER_ID: "Voter ID",
+  PASSPORT: "Passport",
+  OTHER: "Other",
 };
 
 const ROLE_STYLES = {
   GUIDER: { bg: T.violetSoft, color: T.violet },
-  PHOTOGRAPHER: { bg: T.roseSoft, color: '#be185d' },
+  PHOTOGRAPHER: { bg: T.roseSoft, color: "#be185d" },
 };
 
 const STATUS_STYLES = {
-  PENDING: { bg: T.amberSoft, color: '#b45309' },
-  APPROVED: { bg: T.emeraldSoft, color: '#047857' },
-  REJECTED: { bg: T.roseSoft, color: '#be123c' },
+  PENDING: { bg: T.amberSoft, color: "#b45309" },
+  APPROVED: { bg: T.emeraldSoft, color: "#047857" },
+  REJECTED: { bg: T.roseSoft, color: "#be123c" },
 };
 
 const CustomToolbar = () => (
@@ -101,15 +127,29 @@ const CustomToolbar = () => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// USER AVATAR — reusable, with gradient fallback
+// ✅ NEW: Auto-refresh hook — every 30s (pauses when tab hidden)
+// ═══════════════════════════════════════════════════════════════
+const useAutoRefresh = (callback, intervalMs = 30000) => {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      callback();
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [callback, intervalMs]);
+};
+
+// ═══════════════════════════════════════════════════════════════
+// USER AVATAR
 // ═══════════════════════════════════════════════════════════════
 const UserAvatar = ({ row, size = 38 }) => {
   const url = getImageUrl(row?.profilePhotoUrl || row?.profileImage);
-  const initial = (row?.fullName?.[0] || 'R').toUpperCase();
-  const role = row?.requestedRole || 'GUIDER';
+  const initial = (row?.fullName?.[0] || "R").toUpperCase();
+  const role = row?.requestedRole || "GUIDER";
 
   const gradient =
-    role === 'GUIDER'
+    role === "GUIDER"
       ? `linear-gradient(135deg, ${T.violet}, #a78bfa)`
       : `linear-gradient(135deg, ${T.rose}, #f472b6)`;
 
@@ -121,18 +161,18 @@ const UserAvatar = ({ row, size = 38 }) => {
         width: size,
         height: size,
         background: gradient,
-        color: '#fff',
+        color: "#fff",
         fontWeight: 700,
         fontSize: size * 0.42,
-        border: '2px solid #fff',
-        boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
+        border: "2px solid #fff",
+        boxShadow: "0 2px 6px rgba(15,23,42,0.1)",
       }}
       slotProps={{
         img: {
           onError: (e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = '';
-            e.currentTarget.style.display = 'none';
+            e.currentTarget.src = "";
+            e.currentTarget.style.display = "none";
           },
         },
       }}
@@ -153,7 +193,7 @@ const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
         sx={{
           fontFamily: T.fontDisplay,
           fontWeight: 700,
-          fontSize: '0.95rem',
+          fontSize: "0.95rem",
           color: T.textPrimary,
         }}
       >
@@ -162,7 +202,7 @@ const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
       {subtitle && (
         <Typography
           sx={{
-            fontSize: '0.7rem',
+            fontSize: "0.7rem",
             color: T.textFaint,
             mt: 0.2,
             fontWeight: 500,
@@ -176,23 +216,23 @@ const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// IMAGE CARD (for documents)
+// DOC THUMB (read-only preview)
 // ═══════════════════════════════════════════════════════════════
-const ImageCard = ({ label, url }) => {
+const DocThumb = ({ label, url }) => {
   const [errored, setErrored] = useState(false);
   const imageUrl = getImageUrl(url);
 
   return (
-    <Box sx={{ textAlign: 'center' }}>
+    <Box sx={{ textAlign: "center" }}>
       <Typography
         sx={{
-          fontSize: '0.65rem',
+          fontSize: "0.62rem",
           color: T.textFaint,
-          display: 'block',
+          display: "block",
           mb: 1,
           fontWeight: 700,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
         }}
       >
         {label}
@@ -203,18 +243,18 @@ const ImageCard = ({ label, url }) => {
           src={imageUrl}
           alt={label}
           onError={() => setErrored(true)}
-          onClick={() => window.open(imageUrl, '_blank')}
+          onClick={() => window.open(imageUrl, "_blank")}
           sx={{
-            width: 120,
-            height: 120,
+            width: "100%",
+            aspectRatio: "1",
             borderRadius: 2,
-            objectFit: 'cover',
+            objectFit: "cover",
             border: `1px solid ${T.border}`,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            '&:hover': {
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            "&:hover": {
               borderColor: T.indigo,
-              transform: 'translateY(-2px)',
+              transform: "translateY(-2px)",
               boxShadow: `0 8px 20px -8px ${T.indigo}55`,
             },
           }}
@@ -222,18 +262,18 @@ const ImageCard = ({ label, url }) => {
       ) : (
         <Box
           sx={{
-            width: 120,
-            height: 120,
+            width: "100%",
+            aspectRatio: "1",
             bgcolor: T.surfaceSoft,
             borderRadius: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             border: `1px dashed ${T.border}`,
           }}
         >
-          <Typography sx={{ fontSize: '0.7rem', color: T.textFaint }}>
-            {!url ? 'No Image' : 'Load Failed'}
+          <Typography sx={{ fontSize: "0.7rem", color: T.textFaint }}>
+            {!url ? "No Image" : "Load Failed"}
           </Typography>
         </Box>
       )}
@@ -242,10 +282,35 @@ const ImageCard = ({ label, url }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// REQUEST DETAILS MODAL
+// REQUEST DETAILS MODAL — editable KYC docs
 // ═══════════════════════════════════════════════════════════════
-const RequestDetailsModal = ({ request, onClose }) => {
+const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
   const [placeNames, setPlaceNames] = useState([]);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [selfieUrl, setSelfieUrl] = useState("");
+  const [idFrontUrl, setIdFrontUrl] = useState("");
+  const [idBackUrl, setIdBackUrl] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [location, setLocation] = useState("");
+  const [idType, setIdType] = useState("");
+
+  useEffect(() => {
+    if (request) {
+      setSelfieUrl(request.selfieUrl || "");
+      setIdFrontUrl(request.idFrontUrl || "");
+      setIdBackUrl(request.idBackUrl || "");
+      setProfilePhotoUrl(request.profilePhotoUrl || "");
+      setFullName(request.fullName || "");
+      setCompanyName(request.companyName || "");
+      setLocation(request.location || "");
+      setIdType(request.idType || "AADHAAR");
+      setEditing(false);
+    }
+  }, [request]);
 
   useEffect(() => {
     const fetchPlaceNames = async () => {
@@ -266,11 +331,39 @@ const RequestDetailsModal = ({ request, onClose }) => {
         );
         setPlaceNames(names);
       } catch (error) {
-        console.error('Error fetching place names:', error);
+        console.error("Error fetching place names:", error);
       }
     };
     fetchPlaceNames();
   }, [request]);
+
+  const handleSaveDocs = async () => {
+    if (!request) return;
+    setSaving(true);
+    try {
+      await apiClient.put(`/role-requests/${request.id}`, {
+        selfieUrl,
+        idFrontUrl,
+        idBackUrl,
+        profilePhotoUrl,
+        fullName,
+        companyName,
+        location,
+        idType,
+      });
+      toast.success("Documents updated");
+      setEditing(false);
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to update documents"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!request) return null;
 
@@ -289,12 +382,12 @@ const RequestDetailsModal = ({ request, onClose }) => {
         sx={{
           fontFamily: T.fontDisplay,
           fontWeight: 700,
-          fontSize: '1.05rem',
+          fontSize: "1.05rem",
           color: T.textPrimary,
           borderBottom: `1px solid ${T.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           gap: 1,
         }}
       >
@@ -306,26 +399,25 @@ const RequestDetailsModal = ({ request, onClose }) => {
             bgcolor: statusStyle.bg,
             color: statusStyle.color,
             fontWeight: 700,
-            fontSize: '0.65rem',
+            fontSize: "0.65rem",
             height: 22,
             borderRadius: 999,
           }}
         />
       </DialogTitle>
       <DialogContent dividers sx={{ borderColor: T.border, p: 3 }}>
-        {/* ═══════ Applicant Header ═══════ */}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
           <UserAvatar row={request} size={56} />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
-              sx={{ fontSize: '1rem', fontWeight: 700, color: T.textPrimary }}
+              sx={{ fontSize: "1rem", fontWeight: 700, color: T.textPrimary }}
             >
-              {request.fullName || 'N/A'}
+              {request.fullName || "N/A"}
             </Typography>
             <Typography
-              sx={{ fontSize: '0.78rem', color: T.textMuted, mt: 0.2 }}
+              sx={{ fontSize: "0.78rem", color: T.textMuted, mt: 0.2 }}
             >
-              {request.companyName || 'N/A'} • {request.location || 'N/A'}
+              {request.companyName || "N/A"} • {request.location || "N/A"}
             </Typography>
           </Box>
           <Chip
@@ -335,126 +427,144 @@ const RequestDetailsModal = ({ request, onClose }) => {
               bgcolor: roleStyle.bg,
               color: roleStyle.color,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
             }}
           />
         </Stack>
 
-        {/* ═══════ Info Grid ═══════ */}
+        {/* ═══════ Basic Info ═══════ */}
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
             gap: 2.5,
             mb: 3,
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.62rem',
-                color: T.textFaint,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                mb: 0.5,
-              }}
-            >
-              Full Name
-            </Typography>
-            <Typography
-              sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }}
-            >
-              {request.fullName || 'N/A'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.62rem',
-                color: T.textFaint,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                mb: 0.5,
-              }}
-            >
-              Company
-            </Typography>
-            <Typography
-              sx={{ fontSize: '0.88rem', fontWeight: 600, color: T.textPrimary }}
-            >
-              {request.companyName || 'N/A'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.62rem',
-                color: T.textFaint,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                mb: 0.5,
-              }}
-            >
-              Location
-            </Typography>
-            <Typography
-              sx={{ fontSize: '0.88rem', fontWeight: 600, color: T.textPrimary }}
-            >
-              {request.location || 'N/A'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.62rem',
-                color: T.textFaint,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                mb: 0.5,
-              }}
-            >
-              ID Type
-            </Typography>
-            <Chip
-              label={ID_TYPE_LABELS[request.idType] || request.idType || 'N/A'}
-              size="small"
-              sx={{
-                bgcolor: T.indigoSoft,
-                color: T.indigo,
-                fontWeight: 700,
-                fontSize: '0.65rem',
-                height: 22,
-                borderRadius: 999,
-              }}
-            />
-          </Box>
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.62rem',
-                color: T.textFaint,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                mb: 0.5,
-              }}
-            >
-              Submitted On
-            </Typography>
-            <Typography
-              sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}
-            >
-              {request.createdAt
-                ? new Date(request.createdAt).toLocaleString('en-IN')
-                : 'N/A'}
-            </Typography>
-          </Box>
+          {editing ? (
+            <>
+              <TextField
+                label="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                size="small"
+                fullWidth
+              />
+              <TextField
+                label="Company"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                size="small"
+                fullWidth
+              />
+              <TextField
+                label="Location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                size="small"
+                fullWidth
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel>ID Type</InputLabel>
+                <Select
+                  value={idType}
+                  onChange={(e) => setIdType(e.target.value)}
+                  label="ID Type"
+                >
+                  {Object.entries(ID_TYPE_LABELS).map(([k, v]) => (
+                    <MenuItem key={k} value={k}>
+                      {v}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          ) : (
+            <>
+              {[
+                { label: "Full Name", value: request.fullName || "N/A" },
+                { label: "Company", value: request.companyName || "N/A" },
+                { label: "Location", value: request.location || "N/A" },
+              ].map((item) => (
+                <Box key={item.label}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.62rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      mb: 0.5,
+                    }}
+                  >
+                    {item.label}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: "0.88rem",
+                      fontWeight: 600,
+                      color: T.textPrimary,
+                    }}
+                  >
+                    {item.value}
+                  </Typography>
+                </Box>
+              ))}
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.62rem",
+                    color: T.textFaint,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    mb: 0.5,
+                  }}
+                >
+                  ID Type
+                </Typography>
+                <Chip
+                  label={ID_TYPE_LABELS[request.idType] || request.idType || "N/A"}
+                  size="small"
+                  sx={{
+                    bgcolor: T.indigoSoft,
+                    color: T.indigo,
+                    fontWeight: 700,
+                    fontSize: "0.65rem",
+                    height: 22,
+                    borderRadius: 999,
+                  }}
+                />
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.62rem",
+                    color: T.textFaint,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    mb: 0.5,
+                  }}
+                >
+                  Submitted On
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    color: T.textPrimary,
+                  }}
+                >
+                  {request.createdAt
+                    ? new Date(request.createdAt).toLocaleString("en-IN")
+                    : "N/A"}
+                </Typography>
+              </Box>
+            </>
+          )}
         </Box>
 
         {/* ═══════ Places ═══════ */}
@@ -465,16 +575,16 @@ const RequestDetailsModal = ({ request, onClose }) => {
             accent={T.emerald}
           />
           {placeNames.length > 0 ? (
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
               {placeNames.map((place, idx) => (
                 <Chip
                   key={idx}
                   label={place}
                   sx={{
                     bgcolor: T.emeraldSoft,
-                    color: '#047857',
+                    color: "#047857",
                     fontWeight: 700,
-                    fontSize: '0.72rem',
+                    fontSize: "0.72rem",
                     height: 26,
                     borderRadius: 999,
                   }}
@@ -482,36 +592,122 @@ const RequestDetailsModal = ({ request, onClose }) => {
               ))}
             </Stack>
           ) : (
-            <Typography sx={{ fontSize: '0.82rem', color: T.textFaint }}>
+            <Typography sx={{ fontSize: "0.82rem", color: T.textFaint }}>
               No places selected
             </Typography>
           )}
         </Box>
 
-        {/* ═══════ Documents ═══════ */}
+        {/* ═══════ Verification Docs ═══════ */}
         <Box sx={{ mb: 3 }}>
-          <SectionHeader
-            title="Verification Documents"
-            subtitle="Click any image to preview"
-            accent={T.sky}
-          />
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
-              gap: 2,
-            }}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 2 }}
           >
-            <ImageCard label="Selfie (Live)" url={request.selfieUrl} />
-            <ImageCard label="Profile Photo" url={request.profilePhotoUrl} />
-            <ImageCard label="ID Front" url={request.idFrontUrl} />
-            <ImageCard label="ID Back" url={request.idBackUrl} />
-          </Box>
+            <SectionHeader
+              title="Verification Documents"
+              subtitle="Click any image to preview"
+              accent={T.sky}
+            />
+            {request.status === "PENDING" && (
+              <Button
+                size="small"
+                variant={editing ? "outlined" : "contained"}
+                onClick={() => (editing ? handleSaveDocs() : setEditing(true))}
+                disabled={saving}
+                startIcon={
+                  saving ? (
+                    <CircularProgress size={14} />
+                  ) : editing ? (
+                    <SaveIcon sx={{ fontSize: 14 }} />
+                  ) : null
+                }
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "0.72rem",
+                  borderRadius: 2,
+                  ...(editing
+                    ? {
+                        borderColor: T.border,
+                        color: T.textMuted,
+                      }
+                    : {
+                        bgcolor: T.sky,
+                        boxShadow: "none",
+                        "&:hover": { bgcolor: "#0284c7" },
+                      }),
+                }}
+              >
+                {saving ? "Saving..." : editing ? "Save Docs" : "Edit Docs"}
+              </Button>
+            )}
+          </Stack>
+
+          {editing ? (
+            <Stack spacing={2.5}>
+              <ImageInput
+                label="Selfie (Live)"
+                value={selfieUrl}
+                onChange={setSelfieUrl}
+                folder="local-guider/role-requests"
+                aspect="square"
+              />
+              <ImageInput
+                label="Profile Photo"
+                value={profilePhotoUrl}
+                onChange={setProfilePhotoUrl}
+                folder="local-guider/role-requests"
+                aspect="square"
+              />
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 2.5,
+                }}
+              >
+                <ImageInput
+                  label={`${ID_TYPE_LABELS[idType]} — Front`}
+                  value={idFrontUrl}
+                  onChange={setIdFrontUrl}
+                  folder="local-guider/role-requests"
+                  aspect="wide"
+                />
+                <ImageInput
+                  label={`${ID_TYPE_LABELS[idType]} — Back`}
+                  value={idBackUrl}
+                  onChange={setIdBackUrl}
+                  folder="local-guider/role-requests"
+                  aspect="wide"
+                />
+              </Box>
+            </Stack>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
+                gap: 2,
+              }}
+            >
+              <DocThumb label="Selfie (Live)" url={request.selfieUrl} />
+              <DocThumb label="Profile Photo" url={request.profilePhotoUrl} />
+              <DocThumb label="ID Front" url={request.idFrontUrl} />
+              <DocThumb label="ID Back" url={request.idBackUrl} />
+            </Box>
+          )}
         </Box>
 
         {/* ═══════ Message ═══════ */}
         <Box>
-          <SectionHeader title="Message" subtitle="Applicant's note" accent={T.violet} />
+          <SectionHeader
+            title="Message"
+            subtitle="Applicant's note"
+            accent={T.violet}
+          />
           <Paper
             elevation={0}
             sx={{
@@ -523,13 +719,13 @@ const RequestDetailsModal = ({ request, onClose }) => {
           >
             <Typography
               sx={{
-                fontSize: '0.82rem',
+                fontSize: "0.82rem",
                 color: T.textPrimary,
                 lineHeight: 1.6,
                 fontWeight: 500,
               }}
             >
-              {request.message || 'No message provided'}
+              {request.message || "No message provided"}
             </Typography>
           </Paper>
         </Box>
@@ -537,7 +733,7 @@ const RequestDetailsModal = ({ request, onClose }) => {
       <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}` }}>
         <Button
           onClick={onClose}
-          sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          sx={{ textTransform: "none", fontWeight: 600, color: T.textMuted }}
         >
           Close
         </Button>
@@ -547,35 +743,53 @@ const RequestDetailsModal = ({ request, onClose }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// ROLE REQUESTS
+// MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 const RoleRequests = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { items, total, loading, pagination } = useSelector(
     (state) => state.roleRequests
   );
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [processing, setProcessing] = useState(null);
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: null });
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchList = () => {
+  // ✅ Fetch function — memoized
+  const fetchList = useCallback(() => {
     dispatch(
       fetchRoleRequests({
         page: pagination.page,
         limit: pagination.limit,
       })
     );
-  };
+  }, [dispatch, pagination.page, pagination.limit]);
 
+  // ✅ Manual refresh with visual feedback
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    fetchList();
+    setTimeout(() => setIsRefreshing(false), 600);
+  }, [fetchList]);
+
+  // Existing: initial fetch
   useEffect(() => {
     fetchList();
-  }, [dispatch, pagination.page, pagination.limit]);
+  }, [fetchList]);
+
+  // Existing: mark as seen
+  useEffect(() => {
+    localStorage.setItem("roleRequestsSeenAt", Date.now().toString());
+  }, []);
+
+  // ✅ NEW: Auto-refresh every 30 seconds
+  useAutoRefresh(fetchList, 30000);
 
   const filtered = (items || []).filter((item) => {
     const matchesSearch =
@@ -592,10 +806,12 @@ const RoleRequests = () => {
     setProcessing(id);
     try {
       await dispatch(approveRoleRequest(id)).unwrap();
-      toast.success('Approved! User role & profile updated');
+      toast.success("Approved! User role & profile updated");
+      localStorage.setItem("roleRequestsSeenAt", Date.now().toString());
       fetchList();
+      setSelectedRequest(null);
     } catch (error) {
-      toast.error(error.message || 'Approve failed');
+      toast.error(error.message || "Approve failed");
     } finally {
       setProcessing(null);
     }
@@ -603,7 +819,7 @@ const RoleRequests = () => {
 
   const openRejectDialog = (id) => {
     setRejectDialog({ open: true, id });
-    setRejectReason('');
+    setRejectReason("");
   };
 
   const handleReject = async () => {
@@ -614,80 +830,78 @@ const RoleRequests = () => {
       await dispatch(
         rejectRoleRequest({ id, adminMessage: rejectReason })
       ).unwrap();
-      toast.success('Request rejected');
+      toast.success("Request rejected");
       setRejectDialog({ open: false, id: null });
-      setRejectReason('');
+      setRejectReason("");
+      localStorage.setItem("roleRequestsSeenAt", Date.now().toString());
       fetchList();
+      setSelectedRequest(null);
     } catch (error) {
-      toast.error(error.message || 'Reject failed');
+      toast.error(error.message || "Reject failed");
     } finally {
       setProcessing(null);
     }
   };
 
-  // ═══════════════════════════════════════════════════════════════
-  // DataGrid Columns
-  // ═══════════════════════════════════════════════════════════════
   const columns = [
-    // ═══════ Profile Image Column ═══════
     {
-      field: 'profilePhotoUrl',
-      headerName: 'Profile',
+      field: "profilePhotoUrl",
+      headerName: "Profile",
       flex: 0.5,
       minWidth: 80,
       sortable: false,
       renderCell: (p) => <UserAvatar row={p.row} size={38} />,
     },
     {
-      field: 'fullName',
-      headerName: 'Full Name',
+      field: "fullName",
+      headerName: "Full Name",
       flex: 1.2,
       minWidth: 140,
       renderCell: (p) => (
         <Typography
-          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          sx={{ fontSize: "0.82rem", fontWeight: 700, color: T.textPrimary }}
           noWrap
         >
-          {p.row.fullName || '—'}
+          {p.row.fullName || "—"}
         </Typography>
       ),
     },
     {
-      field: 'companyName',
-      headerName: 'Company',
+      field: "companyName",
+      headerName: "Company",
       flex: 1,
       minWidth: 140,
       renderCell: (p) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {p.row.companyName || 'N/A'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {p.row.companyName || "N/A"}
         </Typography>
       ),
     },
     {
-      field: 'location',
-      headerName: 'Location',
+      field: "location",
+      headerName: "Location",
       flex: 0.9,
       minWidth: 110,
       renderCell: (p) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {p.row.location || '—'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {p.row.location || "—"}
         </Typography>
       ),
     },
     {
-      field: 'idType',
-      headerName: 'ID Type',
+      field: "idType",
+      headerName: "ID Type",
       flex: 0.9,
       minWidth: 130,
       renderCell: (p) => (
         <Chip
-          label={ID_TYPE_LABELS[p.row.idType] || p.row.idType || 'N/A'}
+          label={ID_TYPE_LABELS[p.row.idType] || p.row.idType || "N/A"}
           size="small"
           sx={{
             bgcolor: T.indigoSoft,
             color: T.indigo,
             fontWeight: 700,
-            fontSize: '0.65rem',
+            fontSize: "0.65rem",
             height: 22,
             borderRadius: 999,
           }}
@@ -695,8 +909,8 @@ const RoleRequests = () => {
       ),
     },
     {
-      field: 'requestedRole',
-      headerName: 'Role',
+      field: "requestedRole",
+      headerName: "Role",
       flex: 0.7,
       minWidth: 110,
       renderCell: (p) => {
@@ -709,7 +923,7 @@ const RoleRequests = () => {
               bgcolor: style.bg,
               color: style.color,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
             }}
@@ -718,8 +932,8 @@ const RoleRequests = () => {
       },
     },
     {
-      field: 'status',
-      headerName: 'Status',
+      field: "status",
+      headerName: "Status",
       flex: 0.7,
       minWidth: 100,
       renderCell: (p) => {
@@ -732,7 +946,7 @@ const RoleRequests = () => {
               bgcolor: style.bg,
               color: style.color,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
             }}
@@ -741,23 +955,23 @@ const RoleRequests = () => {
       },
     },
     {
-      field: 'createdAt',
-      headerName: 'Date',
+      field: "createdAt",
+      headerName: "Date",
       flex: 0.7,
       minWidth: 100,
       renderCell: (p) => (
-        <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
-          {new Date(p.row.createdAt).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
+        <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }}>
+          {new Date(p.row.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
           })}
         </Typography>
       ),
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
+      field: "actions",
+      headerName: "Actions",
       flex: 1.2,
       minWidth: 170,
       sortable: false,
@@ -770,7 +984,7 @@ const RoleRequests = () => {
               sx={{
                 bgcolor: T.indigoSoft,
                 color: T.indigo,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
                 width: 32,
                 height: 32,
               }}
@@ -778,7 +992,7 @@ const RoleRequests = () => {
               <Visibility sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          {p.row.status === 'PENDING' && (
+          {p.row.status === "PENDING" && (
             <>
               <Tooltip title="Approve">
                 <span>
@@ -788,14 +1002,14 @@ const RoleRequests = () => {
                     disabled={processing === p.row.id}
                     sx={{
                       bgcolor: T.emeraldSoft,
-                      color: '#059669',
-                      '&:hover': { bgcolor: '#a7f3d0' },
+                      color: "#059669",
+                      "&:hover": { bgcolor: "#a7f3d0" },
                       width: 32,
                       height: 32,
                     }}
                   >
                     {processing === p.row.id ? (
-                      <CircularProgress size={14} sx={{ color: '#059669' }} />
+                      <CircularProgress size={14} sx={{ color: "#059669" }} />
                     ) : (
                       <CheckCircle sx={{ fontSize: 16 }} />
                     )}
@@ -811,7 +1025,7 @@ const RoleRequests = () => {
                     sx={{
                       bgcolor: T.roseSoft,
                       color: T.rose,
-                      '&:hover': { bgcolor: '#fecaca' },
+                      "&:hover": { bgcolor: "#fecaca" },
                       width: 32,
                       height: 32,
                     }}
@@ -827,158 +1041,12 @@ const RoleRequests = () => {
     },
   ];
 
-  // ═══════════════════════════════════════════════════════════════
-  // Mobile cards
-  // ═══════════════════════════════════════════════════════════════
-  const renderMobileCards = () => (
-    <Stack spacing={2}>
-      {filtered.length > 0 ? (
-        filtered.map((req) => {
-          const roleStyle = ROLE_STYLES[req.requestedRole] || ROLE_STYLES.GUIDER;
-          const statusStyle = STATUS_STYLES[req.status] || STATUS_STYLES.PENDING;
-          return (
-            <Paper
-              key={req.id}
-              elevation={0}
-              sx={{
-                borderRadius: T.radius,
-                border: `1px solid ${T.border}`,
-                bgcolor: T.surface,
-                p: 2,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
-                  borderColor: T.borderStrong,
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-                <UserAvatar row={req} size={44} />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }}
-                    noWrap
-                  >
-                    {req.fullName}
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.2 }}
-                    noWrap
-                  >
-                    {req.companyName || 'N/A'} • {req.location || 'N/A'}
-                  </Typography>
-                </Box>
-                <Chip
-                  label={req.requestedRole}
-                  size="small"
-                  sx={{
-                    bgcolor: roleStyle.bg,
-                    color: roleStyle.color,
-                    fontWeight: 700,
-                    fontSize: '0.62rem',
-                    height: 22,
-                    borderRadius: 999,
-                  }}
-                />
-              </Stack>
-
-              <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-                <Chip
-                  label={ID_TYPE_LABELS[req.idType] || 'AADHAAR'}
-                  size="small"
-                  sx={{
-                    bgcolor: T.indigoSoft,
-                    color: T.indigo,
-                    fontWeight: 700,
-                    fontSize: '0.62rem',
-                    height: 22,
-                    borderRadius: 999,
-                  }}
-                />
-              </Stack>
-
-              <Stack
-                direction="row"
-                justifyContent="space-between"
-                alignItems="center"
-                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
-              >
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Chip
-                    label={req.status}
-                    size="small"
-                    sx={{
-                      bgcolor: statusStyle.bg,
-                      color: statusStyle.color,
-                      fontWeight: 700,
-                      fontSize: '0.62rem',
-                      height: 22,
-                      borderRadius: 999,
-                    }}
-                  />
-                  <Typography sx={{ fontSize: '0.68rem', color: T.textFaint }}>
-                    {new Date(req.createdAt).toLocaleDateString('en-IN')}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" spacing={0.5}>
-                  <IconButton
-                    size="small"
-                    onClick={() => setSelectedRequest(req)}
-                    sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
-                  >
-                    <Visibility sx={{ fontSize: 15 }} />
-                  </IconButton>
-                  {req.status === 'PENDING' && (
-                    <>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleApprove(req.id)}
-                        disabled={processing === req.id}
-                        sx={{ bgcolor: T.emeraldSoft, color: '#059669', width: 30, height: 30 }}
-                      >
-                        <CheckCircle sx={{ fontSize: 15 }} />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => openRejectDialog(req.id)}
-                        disabled={processing === req.id}
-                        sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
-                      >
-                        <Cancel sx={{ fontSize: 15 }} />
-                      </IconButton>
-                    </>
-                  )}
-                </Stack>
-              </Stack>
-            </Paper>
-          );
-        })
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 4,
-            borderRadius: T.radius,
-            border: `1px dashed ${T.border}`,
-            textAlign: 'center',
-          }}
-        >
-          <InboxIcon sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
-          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
-            No requests found
-          </Typography>
-        </Paper>
-      )}
-    </Stack>
-  );
-
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
         <PanelHeader eyebrow="Verification" title="Role Requests" />
       </Box>
 
-      {/* ═══════ Filters ═══════ */}
       <Paper
         elevation={0}
         sx={{
@@ -989,7 +1057,11 @@ const RoleRequests = () => {
           mb: 2.5,
         }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="center"
+        >
           <TextField
             fullWidth
             size="small"
@@ -1006,12 +1078,15 @@ const RoleRequests = () => {
               },
             }}
             sx={{
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#c7d2fe' },
-                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#c7d2fe" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.indigo,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -1029,18 +1104,25 @@ const RoleRequests = () => {
               <MenuItem value="REJECTED">Rejected</MenuItem>
             </Select>
           </FormControl>
-          <Tooltip title="Refresh">
+          <Tooltip title="Refresh (auto-updates every 30s)">
             <IconButton
-              onClick={fetchList}
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
               sx={{
                 bgcolor: T.indigoSoft,
                 color: T.indigo,
                 width: 40,
                 height: 40,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
               }}
             >
-              <Refresh sx={{ fontSize: 18 }} />
+              <Refresh
+                sx={{
+                  fontSize: 18,
+                  transition: "transform 0.6s ease",
+                  transform: isRefreshing ? "rotate(360deg)" : "none",
+                }}
+              />
             </IconButton>
           </Tooltip>
           <Chip
@@ -1050,7 +1132,7 @@ const RoleRequests = () => {
               color: T.textMuted,
               border: `1px solid ${T.border}`,
               fontWeight: 700,
-              fontSize: '0.72rem',
+              fontSize: "0.72rem",
               height: 32,
               borderRadius: 999,
             }}
@@ -1058,82 +1140,81 @@ const RoleRequests = () => {
         </Stack>
       </Paper>
 
-      {/* ═══════ Table / Cards ═══════ */}
-      {isMobile ? (
-        loading ? <Loader /> : renderMobileCards()
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1,
-            borderRadius: T.radius,
-            border: `1px solid ${T.border}`,
-            bgcolor: T.surface,
-            overflow: 'hidden',
-          }}
-        >
-          {loading ? (
-            <Loader />
-          ) : (
-            <DataGrid
-              rows={filtered}
-              columns={columns}
-              pageSize={pagination.limit}
-              rowsPerPageOptions={[5, 10, 25]}
-              page={pagination.page - 1}
-              onPageChange={(p) => dispatch(setPage(p + 1))}
-              onPageSizeChange={(s) => dispatch(setLimit(s))}
-              components={{ Toolbar: CustomToolbar }}
-              disableSelectionOnClick
-              autoHeight
-              rowHeight={64}
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: T.surfaceSoft,
-                  fontWeight: 700,
-                  color: T.textMuted,
-                  fontSize: '0.72rem',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  borderBottom: `1px solid ${T.border}`,
-                  minHeight: '48px !important',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
-                '& .MuiDataGrid-row': {
-                  borderBottom: `1px solid ${T.border}`,
-                  transition: 'background-color 0.15s ease',
-                },
-                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  py: 0,
-                },
-                '& .MuiDataGrid-cell:focus': { outline: 'none' },
-                '& .MuiDataGrid-columnSeparator': { display: 'none' },
-                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
-                '& .MuiDataGrid-toolbarContainer': {
-                  p: 1,
-                  borderBottom: `1px solid ${T.border}`,
-                },
-              }}
-            />
-          )}
-        </Paper>
-      )}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          overflow: "hidden",
+        }}
+      >
+        {loading ? (
+          <Loader />
+        ) : (
+          <DataGrid
+            rows={filtered}
+            columns={columns}
+            pageSize={pagination.limit}
+            rowsPerPageOptions={[5, 10, 25]}
+            page={pagination.page - 1}
+            onPageChange={(p) => dispatch(setPage(p + 1))}
+            onPageSizeChange={(s) => dispatch(setLimit(s))}
+            components={{ Toolbar: CustomToolbar }}
+            disableSelectionOnClick
+            autoHeight
+            rowHeight={64}
+            sx={{
+              border: "none",
+              "& .MuiDataGrid-columnHeaders": {
+                bgcolor: T.surfaceSoft,
+                fontWeight: 700,
+                color: T.textMuted,
+                fontSize: "0.72rem",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                borderBottom: `1px solid ${T.border}`,
+                minHeight: "48px !important",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+              "& .MuiDataGrid-row": {
+                borderBottom: `1px solid ${T.border}`,
+                transition: "background-color 0.15s ease",
+              },
+              "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "none",
+                display: "flex",
+                alignItems: "center",
+                py: 0,
+              },
+              "& .MuiDataGrid-cell:focus": { outline: "none" },
+              "& .MuiDataGrid-columnSeparator": { display: "none" },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: `1px solid ${T.border}`,
+              },
+              "& .MuiDataGrid-toolbarContainer": {
+                p: 1,
+                borderBottom: `1px solid ${T.border}`,
+              },
+            }}
+          />
+        )}
+      </Paper>
 
-      {/* ═══════ Details Modal ═══════ */}
       <RequestDetailsModal
         request={selectedRequest}
         onClose={() => setSelectedRequest(null)}
+        onUpdate={fetchList}
       />
 
-      {/* ═══════ Reject Reason Dialog ═══════ */}
+      {/* ═══════ Reject Dialog ═══════ */}
       <Dialog
         open={rejectDialog.open}
-        onClose={() => !processing && setRejectDialog({ open: false, id: null })}
+        onClose={() =>
+          !processing && setRejectDialog({ open: false, id: null })
+        }
         maxWidth="sm"
         fullWidth
         slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
@@ -1141,10 +1222,10 @@ const RoleRequests = () => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -1155,9 +1236,9 @@ const RoleRequests = () => {
               borderRadius: 1.5,
               bgcolor: T.roseSoft,
               color: T.rose,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Cancel sx={{ fontSize: 18 }} />
@@ -1166,8 +1247,9 @@ const RoleRequests = () => {
         </DialogTitle>
         <Divider sx={{ borderColor: T.border }} />
         <Box sx={{ px: 3, py: 2.5 }}>
-          <Typography sx={{ fontSize: '0.82rem', color: T.textMuted, mb: 2 }}>
-            Please provide a reason for rejection. This will be sent to the applicant.
+          <Typography sx={{ fontSize: "0.82rem", color: T.textMuted, mb: 2 }}>
+            Please provide a reason for rejection. This will be sent to the
+            applicant.
           </Typography>
           <TextField
             fullWidth
@@ -1177,12 +1259,15 @@ const RoleRequests = () => {
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             sx={{
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#fecaca' },
-                '&.Mui-focused fieldset': { borderColor: T.rose, borderWidth: 1.5 },
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#fecaca" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.rose,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -1191,7 +1276,11 @@ const RoleRequests = () => {
           <Button
             onClick={() => setRejectDialog({ open: false, id: null })}
             disabled={!!processing}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: T.textMuted,
+            }}
           >
             Cancel
           </Button>
@@ -1200,18 +1289,18 @@ const RoleRequests = () => {
             disabled={!!processing}
             variant="contained"
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
               borderRadius: 2,
               bgcolor: T.rose,
-              '&:hover': { bgcolor: '#e11d48' },
-              boxShadow: 'none',
+              "&:hover": { bgcolor: "#e11d48" },
+              boxShadow: "none",
             }}
           >
             {processing ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
             ) : (
-              'Reject'
+              "Reject"
             )}
           </Button>
         </DialogActions>

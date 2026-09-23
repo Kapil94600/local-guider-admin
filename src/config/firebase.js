@@ -1,5 +1,5 @@
 // src/config/firebase.js
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -11,8 +11,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-console.log('🔥 Firebase Project:', firebaseConfig.projectId);
+// ✅ FIX: HMR-safe — reuse existing app instead of re-initializing
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const app = initializeApp(firebaseConfig);
+if (import.meta.env.DEV) {
+  console.log("🔥 Firebase Project:", firebaseConfig.projectId);
+}
+
 export const auth = getAuth(app);
 export default app;

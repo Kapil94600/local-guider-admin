@@ -1,32 +1,33 @@
-import { Navigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { logout } from '../redux/slices/authSlice';
+// src/components/ProtectedRoute.jsx
+import { Navigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { useEffect } from "react";
+import { logout } from "../redux/slices/authSlice";
+import { isAdminRole } from "../constants/roles"; // ✅ FIX C-5
 
 const ProtectedRoute = ({ children }) => {
   const { token, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
-  console.log('🔒 ProtectedRoute - token:', token, 'user:', user);
+  useEffect(() => {
+    if (token && !user) {
+      dispatch(logout());
+    }
+  }, [token, user, dispatch]);
 
   if (!token) {
-    console.log('❌ No token, redirect to login');
     return <Navigate to="/login" replace />;
   }
 
   if (!user) {
-    console.log('❌ Token exists but user missing, logout and redirect');
-    dispatch(logout());
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ ADMIN role check enabled
-  const allowedRoles = ['ADMIN', 'admin'];
-  if (!allowedRoles.includes(user.role)) {
-    console.log('❌ Role not allowed:', user.role);
+  // ✅ FIX C-5: Use shared constant
+  if (!isAdminRole(user.role)) {
     return <Navigate to="/login?error=unauthorized" replace />;
   }
 
-  console.log('✅ ProtectedRoute: access granted');
   return children;
 };
 

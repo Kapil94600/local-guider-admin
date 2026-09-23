@@ -1,69 +1,107 @@
 // src/pages/Places.jsx
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+// ═══════════════════════════════════════════════════════════════
+// PLACES MANAGEMENT — with ImageInput + MultiImageInput
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
-  Box, Paper, Typography, TextField, Select, MenuItem, FormControl,
-  InputLabel, Button, IconButton, Chip, Switch, Dialog, DialogTitle,
-  DialogContent, DialogActions, CircularProgress, InputAdornment,
-  Stack, Tooltip, Divider,
-} from '@mui/material';
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Button,
+  IconButton,
+  Chip,
+  Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  InputAdornment,
+  Stack,
+  Tooltip,
+  Divider,
+} from "@mui/material";
 import {
-  Search, Add, Edit, Delete, Visibility, Star, LocationOn,
-  Place as PlaceIcon, PhotoLibrary, Refresh,
-} from '@mui/icons-material';
+  Search,
+  Add,
+  Edit,
+  Delete,
+  Visibility,
+  Star,
+  LocationOn,
+  Place as PlaceIcon,
+  PhotoLibrary,
+  Refresh,
+} from "@mui/icons-material";
 import {
-  DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport,
-} from '@mui/x-data-grid';
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarFilterButton,
+  GridToolbarExport,
+} from "@mui/x-data-grid";
 import {
-  fetchPlaces, createPlace, updatePlace, deletePlace, setPage, setLimit,
-} from '../redux/slices/placeSlice';
-import Loader from '../components/Loader';
-import PanelHeader from '../components/PanelHeader';
-import GalleryManager from '../components/GalleryManager';
-import { replacePlaceGallery } from '../api/admin';
+  fetchPlaces,
+  createPlace,
+  updatePlace,
+  deletePlace,
+  setPage,
+  setLimit,
+} from "../redux/slices/placeSlice";
+import {
+  ImageInput,
+  MultiImageInput,
+  PanelHeader,
+  Loader,
+} from "../components";
+import { replacePlaceGallery } from "../api/admin";
 import {
   getImageUrlGeneric,
   getFallbackPlaceholder,
-} from '../utils/imageFallback';
+} from "../utils/imageFallback";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS
 // ═══════════════════════════════════════════════════════════════
 const T = {
-  border: '#eef1f6',
-  borderStrong: '#e2e8f0',
-  surface: '#ffffff',
-  surfaceSoft: '#fafbfc',
-  bgRowHover: '#fafbfc',
-  textPrimary: '#0b1220',
-  textMuted: '#64748b',
-  textFaint: '#94a3b8',
-  indigo: '#6366f1',
-  indigoSoft: '#eef2ff',
-  violet: '#8b5cf6',
-  violetSoft: '#ede9fe',
-  emerald: '#10b981',
-  emeraldSoft: '#d1fae5',
-  rose: '#f43f5e',
-  roseSoft: '#ffe4e6',
-  amber: '#f59e0b',
-  amberSoft: '#fef3c7',
-  sky: '#0ea5e9',
-  skySoft: '#e0f2fe',
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  bgRowHover: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  indigoSoft: "#eef2ff",
+  violet: "#8b5cf6",
+  violetSoft: "#ede9fe",
+  emerald: "#10b981",
+  emeraldSoft: "#d1fae5",
+  rose: "#f43f5e",
+  roseSoft: "#ffe4e6",
+  amber: "#f59e0b",
+  amberSoft: "#fef3c7",
+  sky: "#0ea5e9",
+  skySoft: "#e0f2fe",
   radius: 3,
-  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
 const CATEGORY_STYLES = {
-  historical: { bg: '#fef3c7', color: '#b45309' },
-  nature: { bg: '#d1fae5', color: '#047857' },
-  beach: { bg: '#e0f2fe', color: '#0369a1' },
-  adventure: { bg: '#fee2e2', color: '#be123c' },
-  religious: { bg: '#ede9fe', color: '#6d28d9' },
-  cultural: { bg: '#fce7f3', color: '#be185d' },
-  other: { bg: '#f1f5f9', color: '#475569' },
+  historical: { bg: "#fef3c7", color: "#b45309" },
+  nature: { bg: "#d1fae5", color: "#047857" },
+  beach: { bg: "#e0f2fe", color: "#0369a1" },
+  adventure: { bg: "#fee2e2", color: "#be123c" },
+  religious: { bg: "#ede9fe", color: "#6d28d9" },
+  cultural: { bg: "#fce7f3", color: "#be185d" },
+  other: { bg: "#f1f5f9", color: "#475569" },
 };
 
 const CustomToolbar = () => (
@@ -73,24 +111,21 @@ const CustomToolbar = () => (
   </GridToolbarContainer>
 );
 
-// ═══════════════════════════════════════════════════════════════
-// CATEGORY SELECT
-// ═══════════════════════════════════════════════════════════════
-const CategorySelect = ({ value, onChange, size = 'small' }) => (
+const CategorySelect = ({ value, onChange, size = "small" }) => (
   <FormControl fullWidth size={size}>
     <Select
-      value={value || ''}
+      value={value || ""}
       onChange={onChange}
       displayEmpty
       renderValue={(selected) => {
-        if (selected === '' || selected === null)
+        if (selected === "" || selected === null)
           return <span style={{ color: T.textFaint }}>Select Category</span>;
         return selected.charAt(0).toUpperCase() + selected.slice(1);
       }}
       sx={{
         borderRadius: 2,
         bgcolor: T.surfaceSoft,
-        '& .MuiSelect-select': { py: 1.25 },
+        "& .MuiSelect-select": { py: 1.25 },
       }}
     >
       <MenuItem value="">All</MenuItem>
@@ -106,22 +141,23 @@ const CategorySelect = ({ value, onChange, size = 'small' }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// PLACE MODAL
+// PLACE MODAL — with ImageInput + MultiImageInput
 // ═══════════════════════════════════════════════════════════════
 const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    latitude: '',
-    longitude: '',
-    image: '',
-    openingTime: '',
-    closingTime: '',
+    name: "",
+    description: "",
+    category: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    latitude: "",
+    longitude: "",
+    image: "",
+    gallery: [],
+    openingTime: "",
+    closingTime: "",
     isFeatured: false,
     isActive: true,
   });
@@ -129,35 +165,37 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
   useEffect(() => {
     if (place) {
       setFormData({
-        name: place.name || '',
-        description: place.description || '',
-        category: place.category || '',
-        address: place.address || '',
-        city: place.city || '',
-        state: place.state || '',
-        country: place.country || '',
-        latitude: place.latitude || '',
-        longitude: place.longitude || '',
-        image: place.image || '',
-        openingTime: place.openingTime || '',
-        closingTime: place.closingTime || '',
+        name: place.name || "",
+        description: place.description || "",
+        category: place.category || "",
+        address: place.address || "",
+        city: place.city || "",
+        state: place.state || "",
+        country: place.country || "",
+        latitude: place.latitude || "",
+        longitude: place.longitude || "",
+        image: place.image || "",
+        gallery: Array.isArray(place.gallery) ? place.gallery : [],
+        openingTime: place.openingTime || "",
+        closingTime: place.closingTime || "",
         isFeatured: place.isFeatured || false,
         isActive: place.isActive ?? true,
       });
     } else {
       setFormData({
-        name: '',
-        description: '',
-        category: '',
-        address: '',
-        city: '',
-        state: '',
-        country: '',
-        latitude: '',
-        longitude: '',
-        image: '',
-        openingTime: '',
-        closingTime: '',
+        name: "",
+        description: "",
+        category: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "",
+        latitude: "",
+        longitude: "",
+        image: "",
+        gallery: [],
+        openingTime: "",
+        closingTime: "",
         isFeatured: false,
         isActive: true,
       });
@@ -171,19 +209,22 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
 
   const handleSubmit = () => {
     if (!formData.name.trim() || !formData.city.trim()) {
-      toast.error('Name and City are required');
+      toast.error("Name and City are required");
       return;
     }
     onSave(formData);
   };
 
   const inputSx = {
-    '& .MuiOutlinedInput-root': {
+    "& .MuiOutlinedInput-root": {
       borderRadius: 2,
       bgcolor: T.surfaceSoft,
-      '& fieldset': { borderColor: T.border },
-      '&:hover fieldset': { borderColor: '#c7d2fe' },
-      '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+      "& fieldset": { borderColor: T.border },
+      "&:hover fieldset": { borderColor: "#c7d2fe" },
+      "&.Mui-focused fieldset": {
+        borderColor: T.indigo,
+        borderWidth: 1.5,
+      },
     },
   };
 
@@ -197,13 +238,13 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
     >
       <DialogTitle
         sx={{
-          fontFamily: T.fontDisplay,
+          fontFamily: '"Inter", system-ui, sans-serif',
           fontWeight: 700,
-          fontSize: '1.05rem',
+          fontSize: "1.05rem",
           color: T.textPrimary,
           borderBottom: `1px solid ${T.border}`,
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 1,
         }}
       >
@@ -214,21 +255,29 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             borderRadius: 1.5,
             bgcolor: T.indigoSoft,
             color: T.indigo,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <PlaceIcon sx={{ fontSize: 18 }} />
         </Box>
-        {place ? 'Edit Place' : 'Add New Place'}
+        {place ? "Edit Place" : "Add New Place"}
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
+      <DialogContent
+        dividers
+        sx={{
+          p: 3,
+          borderColor: T.border,
+          maxHeight: "70vh",
+          overflowY: "auto",
+        }}
+      >
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
             gap: 2.5,
           }}
         >
@@ -253,10 +302,12 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
           <CategorySelect
             value={formData.category}
             onChange={(e) =>
-              handleChange({ target: { name: 'category', value: e.target.value } })
+              handleChange({
+                target: { name: "category", value: e.target.value },
+              })
             }
           />
-          <Box sx={{ gridColumn: { md: 'span 2' } }}>
+          <Box sx={{ gridColumn: { md: "span 2" } }}>
             <TextField
               fullWidth
               label="Description"
@@ -268,7 +319,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               sx={inputSx}
             />
           </Box>
-          <Box sx={{ gridColumn: { md: 'span 2' } }}>
+          <Box sx={{ gridColumn: { md: "span 2" } }}>
             <TextField
               fullWidth
               label="Address"
@@ -330,17 +381,6 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             onChange={handleChange}
             sx={inputSx}
           />
-          <Box sx={{ gridColumn: { md: 'span 2' } }}>
-            <TextField
-              fullWidth
-              label="Image URL"
-              name="image"
-              value={formData.image}
-              onChange={handleChange}
-              placeholder="https://example.com/image.jpg"
-              sx={inputSx}
-            />
-          </Box>
           <TextField
             fullWidth
             label="Opening Time"
@@ -359,35 +399,82 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             placeholder="06:00 PM"
             sx={inputSx}
           />
+
+          {/* ═══════ MAIN IMAGE — dual mode ═══════ */}
+          <Box sx={{ gridColumn: { md: "span 2" } }}>
+            <ImageInput
+              label="Main Image"
+              value={formData.image}
+              onChange={(url) =>
+                setFormData((prev) => ({ ...prev, image: url }))
+              }
+              folder="local-guider/places"
+              aspect="wide"
+              helperText="Recommended: 1200x800px, JPG/PNG, under 10MB"
+            />
+          </Box>
+
+          {/* ═══════ GALLERY — multi image ═══════ */}
+          <Box sx={{ gridColumn: { md: "span 2" } }}>
+            <MultiImageInput
+              label="Photo Gallery"
+              values={formData.gallery}
+              onChange={(urls) =>
+                setFormData((prev) => ({ ...prev, gallery: urls }))
+              }
+              maxImages={10}
+              folder="local-guider/places/gallery"
+              helperText="Add up to 10 photos. First image will be the cover."
+            />
+          </Box>
+
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}>
+            <Typography
+              sx={{
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: T.textPrimary,
+              }}
+            >
               Featured
             </Typography>
             <Switch
               checked={formData.isFeatured}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, isFeatured: e.target.checked }))
+                setFormData((prev) => ({
+                  ...prev,
+                  isFeatured: e.target.checked,
+                }))
               }
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: T.amber },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                "& .MuiSwitch-switchBase.Mui-checked": { color: T.amber },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
                   bgcolor: T.amber,
                 },
               }}
             />
           </Stack>
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}>
+            <Typography
+              sx={{
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: T.textPrimary,
+              }}
+            >
               Active
             </Typography>
             <Switch
               checked={formData.isActive}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, isActive: e.target.checked }))
+                setFormData((prev) => ({
+                  ...prev,
+                  isActive: e.target.checked,
+                }))
               }
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: T.emerald },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                "& .MuiSwitch-switchBase.Mui-checked": { color: T.emerald },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
                   bgcolor: T.emerald,
                 },
               }}
@@ -396,10 +483,16 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}`, gap: 1 }}>
+      <DialogActions
+        sx={{ p: 2, borderTop: `1px solid ${T.border}`, gap: 1 }}
+      >
         <Button
           onClick={onClose}
-          sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            color: T.textMuted,
+          }}
         >
           Cancel
         </Button>
@@ -408,19 +501,19 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
           variant="contained"
           disabled={saving}
           sx={{
-            textTransform: 'none',
+            textTransform: "none",
             fontWeight: 700,
             borderRadius: 2,
             bgcolor: T.indigo,
             px: 3,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: '#4f46e5' },
+            boxShadow: "none",
+            "&:hover": { bgcolor: "#4f46e5" },
           }}
         >
           {saving ? (
-            <CircularProgress size={16} sx={{ color: '#fff' }} />
+            <CircularProgress size={16} sx={{ color: "#fff" }} />
           ) : (
-            'Save Place'
+            "Save Place"
           )}
         </Button>
       </DialogActions>
@@ -429,7 +522,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// PLACES
+// MAIN PLACES PAGE
 // ═══════════════════════════════════════════════════════════════
 const Places = () => {
   const dispatch = useDispatch();
@@ -441,14 +534,19 @@ const Places = () => {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCity, setFilterCity] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [galleryDialog, setGalleryDialog] = useState({ open: false, place: null });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCity, setFilterCity] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [galleryDialog, setGalleryDialog] = useState({
+    open: false,
+    place: null,
+  });
 
   const fetchList = () => {
-    dispatch(fetchPlaces({ page: pagination.page, limit: pagination.limit }));
+    dispatch(
+      fetchPlaces({ page: pagination.page, limit: pagination.limit })
+    );
   };
 
   useEffect(() => {
@@ -467,8 +565,10 @@ const Places = () => {
       !filterCategory ||
       item.category?.toLowerCase() === filterCategory.toLowerCase();
     const matchesStatus =
-      filterStatus === '' ||
-      (filterStatus === 'true' ? item.isActive === true : item.isActive === false);
+      filterStatus === "" ||
+      (filterStatus === "true"
+        ? item.isActive === true
+        : item.isActive === false);
     return matchesSearch && matchesCity && matchesCategory && matchesStatus;
   });
 
@@ -481,15 +581,15 @@ const Places = () => {
     try {
       if (editPlace) {
         await dispatch(updatePlace({ id: editPlace.id, data })).unwrap();
-        toast.success('Place updated successfully');
+        toast.success("Place updated successfully");
       } else {
         await dispatch(createPlace(data)).unwrap();
-        toast.success('Place created successfully');
+        toast.success("Place created successfully");
       }
       setModalOpen(false);
       fetchList();
     } catch (error) {
-      toast.error(error.message || 'Operation failed');
+      toast.error(error.message || "Operation failed");
     } finally {
       setSaving(false);
     }
@@ -499,11 +599,11 @@ const Places = () => {
     setDeleting(true);
     try {
       await dispatch(deletePlace(id)).unwrap();
-      toast.success('Place deleted successfully');
+      toast.success("Place deleted successfully");
       setDeleteConfirm(null);
       fetchList();
     } catch {
-      toast.error('Delete failed');
+      toast.error("Delete failed");
     } finally {
       setDeleting(false);
     }
@@ -519,30 +619,30 @@ const Places = () => {
     }));
   };
 
-  // ═══════════════════════════════════════════════════════════════
-  // Columns
-  // ═══════════════════════════════════════════════════════════════
   const columns = [
     {
-      field: 'image',
-      headerName: 'Image',
+      field: "image",
+      headerName: "Image",
       flex: 0.5,
       minWidth: 80,
       sortable: false,
       renderCell: (params) => (
         <Box
           component="img"
-          src={getImageUrlGeneric(params.row.image, params.row.name || 'No Image')}
-          alt={params.row.name || ''}
+          src={getImageUrlGeneric(
+            params.row.image,
+            params.row.name || "No Image"
+          )}
+          alt={params.row.name || ""}
           onError={(e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = getFallbackPlaceholder('No Image');
+            e.currentTarget.src = getFallbackPlaceholder("No Image");
           }}
           sx={{
             width: 56,
             height: 40,
             borderRadius: 1.5,
-            objectFit: 'cover',
+            objectFit: "cover",
             bgcolor: T.surfaceSoft,
             border: `1px solid ${T.border}`,
           }}
@@ -550,13 +650,13 @@ const Places = () => {
       ),
     },
     {
-      field: 'name',
-      headerName: 'Name',
+      field: "name",
+      headerName: "Name",
       flex: 1.4,
       minWidth: 160,
       renderCell: (params) => (
         <Typography
-          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          sx={{ fontSize: "0.82rem", fontWeight: 700, color: T.textPrimary }}
           noWrap
         >
           {params.row.name}
@@ -564,23 +664,23 @@ const Places = () => {
       ),
     },
     {
-      field: 'city',
-      headerName: 'City',
+      field: "city",
+      headerName: "City",
       flex: 0.9,
       minWidth: 110,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {params.row.city || '—'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {params.row.city || "—"}
         </Typography>
       ),
     },
     {
-      field: 'category',
-      headerName: 'Category',
+      field: "category",
+      headerName: "Category",
       flex: 0.9,
       minWidth: 120,
       renderCell: (params) => {
-        const cat = (params.row.category || '').toLowerCase();
+        const cat = (params.row.category || "").toLowerCase();
         const style = CATEGORY_STYLES[cat] || CATEGORY_STYLES.other;
         return (
           <Chip
@@ -588,14 +688,14 @@ const Places = () => {
               params.row.category
                 ? params.row.category.charAt(0).toUpperCase() +
                   params.row.category.slice(1)
-                : 'N/A'
+                : "N/A"
             }
             size="small"
             sx={{
               bgcolor: style.bg,
               color: style.color,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
             }}
@@ -604,22 +704,22 @@ const Places = () => {
       },
     },
     {
-      field: 'rating',
-      headerName: 'Rating',
+      field: "rating",
+      headerName: "Rating",
       flex: 0.6,
       minWidth: 90,
       renderCell: (params) => (
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Star sx={{ fontSize: 14, color: T.amber }} />
-          <Typography sx={{ fontSize: '0.78rem', fontWeight: 600 }}>
+          <Typography sx={{ fontSize: "0.78rem", fontWeight: 600 }}>
             {params.row.rating || 0}
           </Typography>
         </Stack>
       ),
     },
     {
-      field: 'gallery',
-      headerName: 'Gallery',
+      field: "gallery",
+      headerName: "Gallery",
       flex: 0.6,
       minWidth: 90,
       sortable: false,
@@ -634,32 +734,32 @@ const Places = () => {
             }
             sx={{
               bgcolor: count > 0 ? T.emeraldSoft : T.surfaceSoft,
-              color: count > 0 ? '#047857' : T.textMuted,
-              border: count > 0 ? 'none' : `1px solid ${T.border}`,
+              color: count > 0 ? "#047857" : T.textMuted,
+              border: count > 0 ? "none" : `1px solid ${T.border}`,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           />
         );
       },
     },
     {
-      field: 'isActive',
-      headerName: 'Status',
+      field: "isActive",
+      headerName: "Status",
       flex: 0.6,
       minWidth: 90,
       renderCell: (params) => (
         <Chip
-          label={params.row.isActive ? 'Active' : 'Inactive'}
+          label={params.row.isActive ? "Active" : "Inactive"}
           size="small"
           sx={{
-            bgcolor: params.row.isActive ? T.emeraldSoft : '#f1f5f9',
-            color: params.row.isActive ? '#059669' : '#64748b',
+            bgcolor: params.row.isActive ? T.emeraldSoft : "#f1f5f9",
+            color: params.row.isActive ? "#059669" : "#64748b",
             fontWeight: 700,
-            fontSize: '0.65rem',
+            fontSize: "0.65rem",
             height: 22,
             borderRadius: 999,
           }}
@@ -667,8 +767,8 @@ const Places = () => {
       ),
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
+      field: "actions",
+      headerName: "Actions",
       flex: 1.3,
       minWidth: 190,
       sortable: false,
@@ -681,7 +781,7 @@ const Places = () => {
               sx={{
                 bgcolor: T.skySoft,
                 color: T.sky,
-                '&:hover': { bgcolor: '#bae6fd' },
+                "&:hover": { bgcolor: "#bae6fd" },
                 width: 32,
                 height: 32,
               }}
@@ -698,7 +798,7 @@ const Places = () => {
               sx={{
                 bgcolor: T.violetSoft,
                 color: T.violet,
-                '&:hover': { bgcolor: '#ddd6fe' },
+                "&:hover": { bgcolor: "#ddd6fe" },
                 width: 32,
                 height: 32,
               }}
@@ -716,7 +816,7 @@ const Places = () => {
               sx={{
                 bgcolor: T.indigoSoft,
                 color: T.indigo,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
                 width: 32,
                 height: 32,
               }}
@@ -731,7 +831,7 @@ const Places = () => {
               sx={{
                 bgcolor: T.roseSoft,
                 color: T.rose,
-                '&:hover': { bgcolor: '#fecaca' },
+                "&:hover": { bgcolor: "#fecaca" },
                 width: 32,
                 height: 32,
               }}
@@ -745,7 +845,7 @@ const Places = () => {
   ];
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
         <PanelHeader eyebrow="Places" title="Places Management" />
       </Box>
@@ -762,10 +862,10 @@ const Places = () => {
         }}
       >
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
+          direction={{ xs: "column", md: "row" }}
           spacing={2}
           alignItems="center"
-          sx={{ flexWrap: 'wrap' }}
+          sx={{ flexWrap: "wrap" }}
         >
           <TextField
             placeholder="Search places..."
@@ -775,12 +875,12 @@ const Places = () => {
             sx={{
               flex: 1,
               minWidth: 220,
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#c7d2fe' },
-                '&.Mui-focused fieldset': {
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#c7d2fe" },
+                "&.Mui-focused fieldset": {
                   borderColor: T.indigo,
                   borderWidth: 1.5,
                 },
@@ -844,7 +944,7 @@ const Places = () => {
                 color: T.indigo,
                 width: 40,
                 height: 40,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
               }}
             >
               <Refresh sx={{ fontSize: 18 }} />
@@ -859,16 +959,16 @@ const Places = () => {
               setModalOpen(true);
             }}
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
-              fontSize: '0.78rem',
+              fontSize: "0.78rem",
               borderRadius: 2,
               bgcolor: T.indigo,
               px: 2.5,
               py: 1,
-              boxShadow: 'none',
-              whiteSpace: 'nowrap',
-              '&:hover': { bgcolor: '#4f46e5' },
+              boxShadow: "none",
+              whiteSpace: "nowrap",
+              "&:hover": { bgcolor: "#4f46e5" },
             }}
           >
             Add Place
@@ -884,7 +984,7 @@ const Places = () => {
           borderRadius: T.radius,
           border: `1px solid ${T.border}`,
           bgcolor: T.surface,
-          overflow: 'hidden',
+          overflow: "hidden",
         }}
       >
         {loading ? (
@@ -903,35 +1003,35 @@ const Places = () => {
             autoHeight
             rowHeight={64}
             sx={{
-              border: 'none',
-              '& .MuiDataGrid-columnHeaders': {
+              border: "none",
+              "& .MuiDataGrid-columnHeaders": {
                 bgcolor: T.surfaceSoft,
                 fontWeight: 700,
                 color: T.textMuted,
-                fontSize: '0.72rem',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
+                fontSize: "0.72rem",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
                 borderBottom: `1px solid ${T.border}`,
-                minHeight: '48px !important',
+                minHeight: "48px !important",
               },
-              '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
-              '& .MuiDataGrid-row': {
+              "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+              "& .MuiDataGrid-row": {
                 borderBottom: `1px solid ${T.border}`,
-                transition: 'background-color 0.15s ease',
+                transition: "background-color 0.15s ease",
               },
-              '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
-              '& .MuiDataGrid-cell': {
-                borderBottom: 'none',
-                display: 'flex',
-                alignItems: 'center',
+              "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "none",
+                display: "flex",
+                alignItems: "center",
                 py: 0,
               },
-              '& .MuiDataGrid-cell:focus': { outline: 'none' },
-              '& .MuiDataGrid-columnSeparator': { display: 'none' },
-              '& .MuiDataGrid-footerContainer': {
+              "& .MuiDataGrid-cell:focus": { outline: "none" },
+              "& .MuiDataGrid-columnSeparator": { display: "none" },
+              "& .MuiDataGrid-footerContainer": {
                 borderTop: `1px solid ${T.border}`,
               },
-              '& .MuiDataGrid-toolbarContainer': {
+              "& .MuiDataGrid-toolbarContainer": {
                 p: 1,
                 borderBottom: `1px solid ${T.border}`,
               },
@@ -951,34 +1051,37 @@ const Places = () => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
             borderBottom: `1px solid ${T.border}`,
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
           <PhotoLibrary sx={{ fontSize: 18, color: T.violet }} />
-          Gallery — {galleryDialog.place?.name || ''}
+          Gallery — {galleryDialog.place?.name || ""}
         </DialogTitle>
         <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
           {galleryDialog.place && (
-            <GalleryManager
-              entityId={galleryDialog.place.id}
-              entityType="PLACE"
-              initialImages={galleryDialog.place.gallery || []}
-              canUpload={true}
-              canDelete={true}
-              onSave={handleGallerySave}
-              title="Place Gallery"
+            <MultiImageInput
+              label="Photo Gallery"
+              values={galleryDialog.place.gallery || []}
+              onChange={handleGallerySave}
+              maxImages={10}
+              folder="local-guider/places/gallery"
+              helperText="Changes are saved automatically."
             />
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button
             onClick={() => setGalleryDialog({ open: false, place: null })}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: T.textMuted,
+            }}
           >
             Close
           </Button>
@@ -1003,10 +1106,10 @@ const Places = () => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -1017,9 +1120,9 @@ const Places = () => {
               borderRadius: 1.5,
               bgcolor: T.roseSoft,
               color: T.rose,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Delete sx={{ fontSize: 18 }} />
@@ -1028,7 +1131,7 @@ const Places = () => {
         </DialogTitle>
         <Divider sx={{ borderColor: T.border }} />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+          <Typography sx={{ fontSize: "0.85rem", color: T.textMuted }}>
             This will permanently delete the place and all associated data.
             This action cannot be undone.
           </Typography>
@@ -1037,7 +1140,11 @@ const Places = () => {
           <Button
             onClick={() => setDeleteConfirm(null)}
             disabled={deleting}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: T.textMuted,
+            }}
           >
             Cancel
           </Button>
@@ -1046,18 +1153,18 @@ const Places = () => {
             disabled={deleting}
             variant="contained"
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
               borderRadius: 2,
               bgcolor: T.rose,
-              '&:hover': { bgcolor: '#e11d48' },
-              boxShadow: 'none',
+              "&:hover": { bgcolor: "#e11d48" },
+              boxShadow: "none",
             }}
           >
             {deleting ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
             ) : (
-              'Delete'
+              "Delete"
             )}
           </Button>
         </DialogActions>

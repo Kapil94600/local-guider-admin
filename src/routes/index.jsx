@@ -29,7 +29,7 @@ import Settings from '../pages/Settings';
 import ChatManagement from '../pages/ChatManagement';
 import WalletManagement from '../pages/WalletManagement';
 import WithdrawalRequests from '../pages/WithdrawalRequests';
-// ✅ Favorites import removed
+import HealthCheck from '../pages/HealthCheck';
 
 const AppRoutes = () => {
   return (
@@ -60,7 +60,6 @@ const AppRoutes = () => {
         <Route path="offers" element={<Offers />} />
         <Route path="id-cards" element={<IdCards />} />
         <Route path="reviews" element={<Reviews />} />
-        {/* ✅ Favorites route removed */}
         <Route path="bookings" element={<Bookings />} />
         <Route path="bookings/:id" element={<BookingDetails />} />
         <Route path="payments" element={<Payments />} />
@@ -70,6 +69,8 @@ const AppRoutes = () => {
         <Route path="notifications" element={<Notifications />} />
         <Route path="chat" element={<ChatManagement />} />
         <Route path="settings" element={<Settings />} />
+        {/* ✅ NEW: Health Check */}
+        <Route path="health" element={<HealthCheck />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

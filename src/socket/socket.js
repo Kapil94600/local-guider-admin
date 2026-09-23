@@ -1,77 +1,94 @@
 // src/socket/socket.js
-import { Server } from "socket.io";
+import { io } from "socket.io-client";
 
-let io = null;
-const onlineUsers = new Map(); // userId -> Set of socketIds
+let socket = null;
+const onlineUsers = new Map();
 
-export const initSocket = (httpServer) => {
-  io = new Server(httpServer, {
-    cors: {
-      origin: "*", // tighten in production
-      methods: ["GET", "POST"],
-    },
-  });
-
-  io.on("connection", (socket) => {
-    console.log("🔌 Socket connected:", socket.id);
-
-    // Client sends "register" with their userId
-    socket.on("register", (userId) => {
-      if (!userId) return;
-      const room = `user:${userId}`;
-      socket.join(room);
-
-      // Track online users
-      if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, new Set());
-      }
-      onlineUsers.get(userId).add(socket.id);
-
-      // Broadcast presence
-      io.emit("presence:update", { userId, isOnline: true });
-
-      console.log(`✅ User ${userId} registered on socket ${socket.id}`);
-    });
-
-    // Typing indicator
-    socket.on("chat:typing", ({ conversationId, receiverId, isTyping, userId }) => {
-      if (!receiverId) return;
-      io.to(`user:${receiverId}`).emit("chat:typing", {
-        conversationId,
-        userId,
-        isTyping,
-      });
-    });
-
-    // Read receipt
-    socket.on("chat:read", ({ conversationId, senderId, userId }) => {
-      if (!senderId) return;
-      io.to(`user:${senderId}`).emit("chat:read", {
-        conversationId,
-        readBy: userId,
-        readAt: new Date(),
-      });
-    });
-
-    socket.on("disconnect", () => {
-      // Remove socket from any user's Set
-      for (const [userId, sockets] of onlineUsers.entries()) {
-        if (sockets.has(socket.id)) {
-          sockets.delete(socket.id);
-          if (sockets.size === 0) {
-            onlineUsers.delete(userId);
-            io.emit("presence:update", { userId, isOnline: false });
-          }
-          break;
-        }
-      }
-      console.log("❌ Socket disconnected:", socket.id);
-    });
-  });
-
-  return io;
+const getSocketUrl = () => {
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "https://local-guider-backend.onrender.com/api/v1";
+  return API_URL.replace(/\/api\/v1\/?$/, "");
 };
 
-export const getIO = () => io;
+export const initSocket = (token) => {
+  if (!token) {
+    console.warn("⚠️ initSocket called without token — aborting");
+    return null;
+  }
+
+  // Reuse existing socket if same token
+  if (socket && socket.auth?.token === token) {
+    if (!socket.connected) socket.connect();
+    return socket;
+  }
+
+  // Tear down old
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX C-2: Transport order — polling first, then upgrade
+  // (Previously: websocket first → fails on corporate WiFi / proxies)
+  // ═══════════════════════════════════════════════════════════════
+  socket = io(getSocketUrl(), {
+    auth: { token },
+    transports: ["polling", "websocket"], // ✅ FIXED ORDER
+    upgrade: true,
+    rememberUpgrade: false,
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    withCredentials: true,
+    timeout: 20000,
+    path: "/socket.io",
+  });
+
+  socket.on("connect", () => {
+    console.log("🔌 Socket connected (authenticated):", socket.id);
+    console.log(
+      "   transport:",
+      socket.io.engine?.transport?.name || "unknown"
+    );
+  });
+
+  socket.on("connect_error", (err) => {
+    console.error("❌ Socket auth error:", err.message);
+    if (err.message?.includes("Authentication")) {
+      socket.disconnect();
+      socket = null;
+    }
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log("❌ Socket disconnected:", reason);
+  });
+
+  // Track upgrade
+  socket.io.on("upgrade", (transport) => {
+    console.log("⬆️ Transport upgraded to:", transport.name);
+  });
+
+  socket.io.on("upgradeError", (err) => {
+    console.warn("⚠️ Upgrade failed (staying on polling):", err?.message);
+  });
+
+  return socket;
+};
+
+export const getIO = () => socket;
+
+export const disconnectSocket = () => {
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
+  onlineUsers.clear();
+};
 
 export const getOnlineUsers = () => Array.from(onlineUsers.keys());

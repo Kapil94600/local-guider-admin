@@ -1,7 +1,8 @@
+// src/redux/slices/reviewSlice.js
 import { createEntitySlice } from './createEntitySlice';
 import * as api from '../../api/admin';
 
-const reviewSlice = createEntitySlice('reviews', {
+const { slice, thunks } = createEntitySlice('reviews', {
   getAll: api.getReviews,
   getById: api.getReviewById,
   updateStatus: api.updateReviewStatus,
@@ -13,10 +14,14 @@ export const {
   fetchById: fetchReviewById,
   updateStatus: updateReviewStatus,
   remove: deleteReview,
+} = thunks;
+
+export const {
   setPage,
   setLimit,
   setFilters,
   clearSelected,
-} = reviewSlice.actions;
+  clearError,
+} = slice.actions;
 
-export default reviewSlice.reducer;
+export default slice.reducer;

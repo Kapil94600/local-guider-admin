@@ -21,3 +21,8 @@ export const refreshToken = (refreshToken) =>
 // ═══════════════════════════════════════════
 export const firebaseLogin = (idToken) =>
   apiClient.post('/auth/firebase-login', { idToken });
+
+// ═══════════════════════════════════════════
+// ❌ Removed: forgotPassword, resetPassword
+// (Admin panel uses Firebase Phone Auth — no email password reset flow)
+// ═══════════════════════════════════════════

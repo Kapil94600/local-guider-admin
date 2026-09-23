@@ -1,6 +1,6 @@
 // src/components/EntityList.jsx
-import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useState, useEffect, useRef } from "react";
+import { useDispatch } from "react-redux";
 import {
   Table,
   TableHeader,
@@ -9,12 +9,12 @@ import {
   TableCell,
   TablePagination,
   SearchInput,
-} from './TableComponents';
-import { LoadingSkeleton } from './LoadingSkeleton';
-import { StatusUpdateModal } from './StatusUpdateModal';
-import { DeleteConfirmModal } from './DeleteConfirmModal';
-import { FaEdit, FaTrash, FaEye } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+} from "./TableComponents";
+import { LoadingSkeleton } from "./LoadingSkeleton";
+import { StatusUpdateModal } from "./StatusUpdateModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { FaEdit, FaTrash, FaEye } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 export const EntityList = ({
   title,
@@ -28,24 +28,64 @@ export const EntityList = ({
   total,
   loading,
   columns,
-  statusField = 'status',
-  idField = 'id',
+  statusField = "isActive", // ✅ FIX: default to isActive (boolean)
+  idField = "id",
   showStatusUpdate = true,
   showDelete = true,
   showView = true,
-  viewPath = '', // optional base path for view details
+  viewPath = "",
   extraActions = [],
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [statusModal, setStatusModal] = useState({ open: false, id: null, currentStatus: '' });
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusModal, setStatusModal] = useState({
+    open: false,
+    id: null,
+    currentStatus: null,
+  });
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
 
+  // ✅ Stable ref for fetchAction to avoid effect loop
+  const fetchActionRef = useRef(fetchAction);
   useEffect(() => {
-    const params = { page: pagination.page, limit: pagination.limit, search };
-    dispatch(fetchAction(params));
-  }, [dispatch, fetchAction, pagination.page, pagination.limit, search]);
+    fetchActionRef.current = fetchAction;
+  }, [fetchAction]);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ DEBOUNCE — 400ms after typing stops
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ FIX: Reset page to 1 ONLY when debounced search changes
+  // (not on every keystroke)
+  // ═══════════════════════════════════════════════════════════
+  const prevSearchRef = useRef(debouncedSearch);
+  useEffect(() => {
+    if (prevSearchRef.current !== debouncedSearch) {
+      prevSearchRef.current = debouncedSearch;
+      dispatch(setPageAction(1));
+    }
+  }, [debouncedSearch, dispatch, setPageAction]);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ FETCH — uses debounced search
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    const params = {
+      page: pagination.page,
+      limit: pagination.limit,
+      search: debouncedSearch || undefined,
+    };
+    dispatch(fetchActionRef.current(params));
+  }, [dispatch, pagination.page, pagination.limit, debouncedSearch]);
 
   const handlePageChange = (newPage) => {
     dispatch(setPageAction(newPage + 1));
@@ -56,14 +96,14 @@ export const EntityList = ({
     dispatch(setPageAction(1));
   };
 
+  // ✅ Simple input handler — no dispatch
   const handleSearch = (e) => {
     setSearch(e.target.value);
-    dispatch(setPageAction(1));
   };
 
   const handleStatusUpdate = (id, newStatus) => {
     dispatch(updateStatusAction({ id, status: newStatus }));
-    setStatusModal({ open: false, id: null, currentStatus: '' });
+    setStatusModal({ open: false, id: null, currentStatus: null });
   };
 
   const handleDelete = (id) => {
@@ -84,7 +124,11 @@ export const EntityList = ({
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h2 className="text-2xl font-bold">{title}</h2>
         <div className="flex items-center gap-2">
-          <SearchInput value={search} onChange={handleSearch} placeholder="Search..." />
+          <SearchInput
+            value={search}
+            onChange={handleSearch}
+            placeholder="Search..."
+          />
         </div>
       </div>
 
@@ -96,7 +140,9 @@ export const EntityList = ({
             <Table>
               <TableHeader>
                 {columns.map((col) => (
-                  <TableCell key={col.key} as="th">{col.label}</TableCell>
+                  <TableCell key={col.key} as="th">
+                    {col.label}
+                  </TableCell>
                 ))}
                 <TableCell as="th">Actions</TableCell>
               </TableHeader>
@@ -122,7 +168,9 @@ export const EntityList = ({
                         ))}
                         {showView && (
                           <button
-                            onClick={() => navigate(`/${viewPath}/${item[idField]}`)}
+                            onClick={() =>
+                              navigate(`/${viewPath}/${item[idField]}`)
+                            }
                             className="p-1 rounded hover:bg-gray-100 text-blue-600"
                             title="View Details"
                           >
@@ -131,7 +179,12 @@ export const EntityList = ({
                         )}
                         {showStatusUpdate && (
                           <button
-                            onClick={() => openStatusModal(item[idField], item[statusField])}
+                            onClick={() =>
+                              openStatusModal(
+                                item[idField],
+                                item[statusField]
+                              )
+                            }
                             className="p-1 rounded hover:bg-gray-100 text-yellow-600"
                             title="Update Status"
                           >
@@ -158,7 +211,9 @@ export const EntityList = ({
               page={pagination.page - 1}
               rowsPerPage={pagination.limit}
               onPageChange={(e, p) => handlePageChange(p)}
-              onRowsPerPageChange={(e) => handleLimitChange(parseInt(e.target.value, 10))}
+              onRowsPerPageChange={(e) =>
+                handleLimitChange(parseInt(e.target.value, 10))
+              }
             />
           </>
         )}
@@ -166,7 +221,9 @@ export const EntityList = ({
 
       <StatusUpdateModal
         open={statusModal.open}
-        onClose={() => setStatusModal({ open: false, id: null, currentStatus: '' })}
+        onClose={() =>
+          setStatusModal({ open: false, id: null, currentStatus: null })
+        }
         onConfirm={handleStatusUpdate}
         id={statusModal.id}
         currentStatus={statusModal.currentStatus}

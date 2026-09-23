@@ -1,50 +1,77 @@
 // src/pages/Offers.jsx
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
-import { toast } from 'react-toastify';
+// ═══════════════════════════════════════════════════════════════
+// OFFERS MANAGEMENT — with ImageInput
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { FaPlus, FaEdit, FaTrash } from "react-icons/fa";
+import { toast } from "react-toastify";
 import {
-  Box, Paper, Typography, TextField, Button, IconButton, Chip, Switch,
-  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-  Stack, useMediaQuery, useTheme, Tooltip, InputAdornment,
-  FormControl, InputLabel, Select, MenuItem, Divider,
-} from '@mui/material';
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  IconButton,
+  Chip,
+  Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  Stack,
+  useMediaQuery,
+  useTheme,
+  Tooltip,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider,
+} from "@mui/material";
 import {
-  Search, CloudUpload, Close, Refresh,
-  LocalOffer as OfferIcon, Inbox,
-} from '@mui/icons-material';
+  Search,
+  Refresh,
+  LocalOffer as OfferIcon,
+} from "@mui/icons-material";
 import {
-  DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport,
-} from '@mui/x-data-grid';
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarFilterButton,
+  GridToolbarExport,
+} from "@mui/x-data-grid";
 import {
-  fetchOffers, createOffer, updateOffer, deleteOffer, setPage, setLimit,
-} from '../redux/slices/offerSlice';
-import Loader from '../components/Loader';
-import PanelHeader from '../components/PanelHeader';
-import apiClient from '../api/axios';
+  fetchOffers,
+  createOffer,
+  updateOffer,
+  deleteOffer,
+  setPage,
+  setLimit,
+} from "../redux/slices/offerSlice";
+import { ImageInput, PanelHeader, Loader } from "../components";
+import { getImageUrlGeneric } from "../utils/imageFallback";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS
 // ═══════════════════════════════════════════════════════════════
 const T = {
-  border: '#eef1f6',
-  borderStrong: '#e2e8f0',
-  surface: '#ffffff',
-  surfaceSoft: '#fafbfc',
-  bgRowHover: '#fafbfc',
-  textPrimary: '#0b1220',
-  textMuted: '#64748b',
-  textFaint: '#94a3b8',
-  indigo: '#6366f1',
-  indigoSoft: '#eef2ff',
-  violet: '#8b5cf6',
-  violetSoft: '#ede9fe',
-  emerald: '#10b981',
-  emeraldSoft: '#d1fae5',
-  rose: '#f43f5e',
-  roseSoft: '#ffe4e6',
-  amber: '#f59e0b',
-  amberSoft: '#fef3c7',
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  bgRowHover: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  indigoSoft: "#eef2ff",
+  emerald: "#10b981",
+  emeraldSoft: "#d1fae5",
+  rose: "#f43f5e",
+  roseSoft: "#ffe4e6",
+  amber: "#f59e0b",
   radius: 3,
   fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
@@ -57,12 +84,15 @@ const CustomToolbar = () => (
 );
 
 const inputSx = {
-  '& .MuiOutlinedInput-root': {
+  "& .MuiOutlinedInput-root": {
     borderRadius: 2,
     bgcolor: T.surfaceSoft,
-    '& fieldset': { borderColor: T.border },
-    '&:hover fieldset': { borderColor: '#c7d2fe' },
-    '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+    "& fieldset": { borderColor: T.border },
+    "&:hover fieldset": { borderColor: "#c7d2fe" },
+    "&.Mui-focused fieldset": {
+      borderColor: T.indigo,
+      borderWidth: 1.5,
+    },
   },
 };
 
@@ -71,41 +101,48 @@ const inputSx = {
 // ═══════════════════════════════════════════════════════════════
 const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
   const [formData, setFormData] = useState({
-    title: '', description: '', image: '',
-    discountPercentage: 0, startDate: '', endDate: '', isActive: true,
+    title: "",
+    description: "",
+    image: "",
+    discountPercentage: 0,
+    startDate: "",
+    endDate: "",
+    isActive: true,
   });
-  const [uploading, setUploading] = useState(false);
-  const [previewImage, setPreviewImage] = useState('');
 
   useEffect(() => {
+    const formatDateForInput = (dateStr) => {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
     if (offer) {
-      const formatDateForInput = (dateStr) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '';
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-      };
       setFormData({
-        title: offer.title || '',
-        description: offer.description || '',
-        image: offer.image || '',
+        title: offer.title || "",
+        description: offer.description || "",
+        image: offer.image || "",
         discountPercentage: offer.discountPercentage || 0,
         startDate: formatDateForInput(offer.startDate),
         endDate: formatDateForInput(offer.endDate),
         isActive: offer.isActive ?? true,
       });
-      setPreviewImage(offer.image || '');
     } else {
       setFormData({
-        title: '', description: '', image: '',
-        discountPercentage: 0, startDate: '', endDate: '', isActive: true,
+        title: "",
+        description: "",
+        image: "",
+        discountPercentage: 0,
+        startDate: "",
+        endDate: "",
+        isActive: true,
       });
-      setPreviewImage('');
     }
   }, [offer, open]);
 
@@ -114,41 +151,9 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-    const fd = new FormData();
-    fd.append('image', file);
-    try {
-      setUploading(true);
-      const response = await apiClient.post('/uploads', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const imageUrl = response.data.url;
-      setPreviewImage(imageUrl);
-      setFormData((prev) => ({ ...prev, image: imageUrl }));
-      toast.success('Image uploaded');
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(error.response?.data?.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      event.target.value = '';
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setPreviewImage('');
-    setFormData((prev) => ({ ...prev, image: '' }));
-  };
-
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast.error("Title is required");
       return;
     }
     const toISOOrNull = (value) => {
@@ -156,13 +161,12 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
       const d = new Date(value);
       return isNaN(d.getTime()) ? null : d.toISOString();
     };
-    const payload = {
+    onSave({
       ...formData,
       startDate: toISOOrNull(formData.startDate),
       endDate: toISOOrNull(formData.endDate),
       discountPercentage: Number(formData.discountPercentage) || 0,
-    };
-    onSave(payload);
+    });
   };
 
   return (
@@ -175,22 +179,31 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
     >
       <DialogTitle
         sx={{
-          fontFamily: T.fontDisplay, fontWeight: 700,
-          fontSize: '1.05rem', color: T.textPrimary,
+          fontFamily: T.fontDisplay,
+          fontWeight: 700,
+          fontSize: "1.05rem",
+          color: T.textPrimary,
           borderBottom: `1px solid ${T.border}`,
-          display: 'flex', alignItems: 'center', gap: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
         }}
       >
         <Box
           sx={{
-            width: 32, height: 32, borderRadius: 1.5,
-            bgcolor: T.indigoSoft, color: T.indigo,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            bgcolor: T.indigoSoft,
+            color: T.indigo,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <OfferIcon sx={{ fontSize: 18 }} />
         </Box>
-        {offer ? 'Edit Offer' : 'Create New Offer'}
+        {offer ? "Edit Offer" : "Create New Offer"}
       </DialogTitle>
       <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
         <Stack spacing={2.5}>
@@ -214,79 +227,17 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
             sx={inputSx}
           />
 
-          {/* Image Upload */}
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.7rem', fontWeight: 700,
-                color: T.textFaint, letterSpacing: '0.06em',
-                textTransform: 'uppercase', mb: 1,
-              }}
-            >
-              Offer Image
-            </Typography>
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1.5 }}>
-              <Button
-                component="label"
-                variant="outlined"
-                startIcon={<CloudUpload />}
-                disabled={uploading}
-                sx={{
-                  textTransform: 'none', fontWeight: 700,
-                  fontSize: '0.78rem', borderRadius: 2,
-                  borderColor: T.border, color: T.textPrimary,
-                  bgcolor: T.surface, px: 2,
-                  '&:hover': { borderColor: T.indigo, bgcolor: T.indigoSoft },
-                }}
-              >
-                Upload Image
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </Button>
-              {uploading && <CircularProgress size={20} sx={{ color: T.indigo }} />}
-              {previewImage && (
-                <Box
-                  sx={{
-                    position: 'relative', width: 80, height: 80,
-                    borderRadius: 2, overflow: 'hidden',
-                    border: `1px solid ${T.border}`,
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={previewImage}
-                    alt="preview"
-                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={handleRemoveImage}
-                    sx={{
-                      position: 'absolute', top: 2, right: 2,
-                      width: 24, height: 24,
-                      bgcolor: 'rgba(11,18,32,0.7)', color: '#fff',
-                      '&:hover': { bgcolor: 'rgba(11,18,32,0.9)' },
-                    }}
-                  >
-                    <Close sx={{ fontSize: 14 }} />
-                  </IconButton>
-                </Box>
-              )}
-            </Stack>
-            <TextField
-              fullWidth
-              label="Image URL"
-              value={formData.image}
-              name="image"
-              sx={{ mt: 1.5, ...inputSx }}
-              slotProps={{ input: { readOnly: true } }}
-              size="small"
-            />
-          </Box>
+          {/* ═══════ IMAGE — dual mode ═══════ */}
+          <ImageInput
+            label="Offer Image"
+            value={formData.image}
+            onChange={(url) =>
+              setFormData((prev) => ({ ...prev, image: url }))
+            }
+            folder="local-guider/offers"
+            aspect="wide"
+            helperText="Recommended: 800x600px, JPG/PNG, under 10MB"
+          />
 
           <TextField
             fullWidth
@@ -323,17 +274,26 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
           </Stack>
 
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: T.textPrimary }}>
+            <Typography
+              sx={{
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: T.textPrimary,
+              }}
+            >
               Active
             </Typography>
             <Switch
               checked={formData.isActive}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, isActive: e.target.checked }))
+                setFormData((prev) => ({
+                  ...prev,
+                  isActive: e.target.checked,
+                }))
               }
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: T.emerald },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                "& .MuiSwitch-switchBase.Mui-checked": { color: T.emerald },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
                   bgcolor: T.emerald,
                 },
               }}
@@ -341,10 +301,16 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
           </Stack>
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}`, gap: 1 }}>
+      <DialogActions
+        sx={{ p: 2, borderTop: `1px solid ${T.border}`, gap: 1 }}
+      >
         <Button
           onClick={onClose}
-          sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            color: T.textMuted,
+          }}
         >
           Cancel
         </Button>
@@ -353,16 +319,19 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
           variant="contained"
           disabled={saving}
           sx={{
-            textTransform: 'none', fontWeight: 700,
-            borderRadius: 2, bgcolor: T.indigo,
-            px: 3, boxShadow: 'none',
-            '&:hover': { bgcolor: '#4f46e5' },
+            textTransform: "none",
+            fontWeight: 700,
+            borderRadius: 2,
+            bgcolor: T.indigo,
+            px: 3,
+            boxShadow: "none",
+            "&:hover": { bgcolor: "#4f46e5" },
           }}
         >
           {saving ? (
-            <CircularProgress size={16} sx={{ color: '#fff' }} />
+            <CircularProgress size={16} sx={{ color: "#fff" }} />
           ) : (
-            'Save Offer'
+            "Save Offer"
           )}
         </Button>
       </DialogActions>
@@ -371,16 +340,16 @@ const OfferModal = ({ open, onClose, offer, onSave, saving }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// OFFERS
+// MAIN OFFERS PAGE
 // ═══════════════════════════════════════════════════════════════
 const Offers = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { items, loading, pagination } = useSelector((s) => s.offers);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [modalOpen, setModalOpen] = useState(false);
   const [editOffer, setEditOffer] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -393,7 +362,7 @@ const Offers = () => {
         page: pagination.page,
         limit: pagination.limit,
         search: searchTerm || undefined,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        status: statusFilter !== "ALL" ? statusFilter : undefined,
       })
     );
   };
@@ -407,15 +376,15 @@ const Offers = () => {
     try {
       if (editOffer) {
         await dispatch(updateOffer({ id: editOffer.id, data })).unwrap();
-        toast.success('Offer updated');
+        toast.success("Offer updated");
       } else {
         await dispatch(createOffer(data)).unwrap();
-        toast.success('Offer created');
+        toast.success("Offer created");
       }
       setModalOpen(false);
       fetchList();
     } catch (error) {
-      toast.error(error.message || 'Failed to save offer');
+      toast.error(error.message || "Failed to save offer");
     } finally {
       setSaving(false);
     }
@@ -425,11 +394,11 @@ const Offers = () => {
     setDeleting(true);
     try {
       await dispatch(deleteOffer(id)).unwrap();
-      toast.success('Offer deleted');
+      toast.success("Offer deleted");
       setDeleteConfirm(null);
       fetchList();
     } catch {
-      toast.error('Delete failed');
+      toast.error("Delete failed");
     } finally {
       setDeleting(false);
     }
@@ -437,19 +406,21 @@ const Offers = () => {
 
   const columns = [
     {
-      field: 'image',
-      headerName: 'Image',
+      field: "image",
+      headerName: "Image",
       flex: 0.5,
       minWidth: 90,
       sortable: false,
       renderCell: (params) => (
         <Box
           component="img"
-          src={params.row.image || 'https://via.placeholder.com/80'}
+          src={getImageUrlGeneric(params.row.image, "Offer")}
           alt="offer"
           sx={{
-            width: 56, height: 44,
-            borderRadius: 1.5, objectFit: 'cover',
+            width: 56,
+            height: 44,
+            borderRadius: 1.5,
+            objectFit: "cover",
             border: `1px solid ${T.border}`,
             bgcolor: T.surfaceSoft,
           }}
@@ -457,13 +428,13 @@ const Offers = () => {
       ),
     },
     {
-      field: 'title',
-      headerName: 'Title',
+      field: "title",
+      headerName: "Title",
       flex: 1.4,
       minWidth: 160,
       renderCell: (params) => (
         <Typography
-          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          sx={{ fontSize: "0.82rem", fontWeight: 700, color: T.textPrimary }}
           noWrap
         >
           {params.row.title}
@@ -471,19 +442,19 @@ const Offers = () => {
       ),
     },
     {
-      field: 'description',
-      headerName: 'Description',
+      field: "description",
+      headerName: "Description",
       flex: 2,
       minWidth: 200,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {params.row.description || '—'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {params.row.description || "—"}
         </Typography>
       ),
     },
     {
-      field: 'discountPercentage',
-      headerName: 'Discount',
+      field: "discountPercentage",
+      headerName: "Discount",
       flex: 0.5,
       minWidth: 90,
       renderCell: (params) => (
@@ -491,66 +462,79 @@ const Offers = () => {
           label={`${params.row.discountPercentage || 0}%`}
           size="small"
           sx={{
-            bgcolor: T.emeraldSoft, color: '#047857',
-            fontWeight: 700, fontSize: '0.65rem',
-            height: 22, borderRadius: 999,
+            bgcolor: T.emeraldSoft,
+            color: "#047857",
+            fontWeight: 700,
+            fontSize: "0.65rem",
+            height: 22,
+            borderRadius: 999,
           }}
         />
       ),
     },
     {
-      field: 'startDate',
-      headerName: 'Start',
+      field: "startDate",
+      headerName: "Start",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) =>
         params.row.startDate ? (
-          <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
-            {new Date(params.row.startDate).toLocaleDateString('en-IN', {
-              day: '2-digit', month: 'short', year: 'numeric',
+          <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }}>
+            {new Date(params.row.startDate).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
             })}
           </Typography>
         ) : (
-          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>N/A</Typography>
+          <Typography sx={{ fontSize: "0.75rem", color: T.textFaint }}>
+            N/A
+          </Typography>
         ),
     },
     {
-      field: 'endDate',
-      headerName: 'End',
+      field: "endDate",
+      headerName: "End",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) =>
         params.row.endDate ? (
-          <Typography sx={{ fontSize: '0.75rem', color: T.textMuted }}>
-            {new Date(params.row.endDate).toLocaleDateString('en-IN', {
-              day: '2-digit', month: 'short', year: 'numeric',
+          <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }}>
+            {new Date(params.row.endDate).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
             })}
           </Typography>
         ) : (
-          <Typography sx={{ fontSize: '0.75rem', color: T.textFaint }}>N/A</Typography>
+          <Typography sx={{ fontSize: "0.75rem", color: T.textFaint }}>
+            N/A
+          </Typography>
         ),
     },
     {
-      field: 'isActive',
-      headerName: 'Status',
+      field: "isActive",
+      headerName: "Status",
       flex: 0.5,
       minWidth: 90,
       renderCell: (params) => (
         <Chip
-          label={params.row.isActive ? 'Active' : 'Inactive'}
+          label={params.row.isActive ? "Active" : "Inactive"}
           size="small"
           sx={{
-            bgcolor: params.row.isActive ? T.emeraldSoft : '#f1f5f9',
-            color: params.row.isActive ? '#059669' : '#64748b',
-            fontWeight: 700, fontSize: '0.65rem',
-            height: 22, borderRadius: 999,
+            bgcolor: params.row.isActive ? T.emeraldSoft : "#f1f5f9",
+            color: params.row.isActive ? "#059669" : "#64748b",
+            fontWeight: 700,
+            fontSize: "0.65rem",
+            height: 22,
+            borderRadius: 999,
           }}
         />
       ),
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
+      field: "actions",
+      headerName: "Actions",
       flex: 0.7,
       minWidth: 110,
       sortable: false,
@@ -564,9 +548,11 @@ const Offers = () => {
                 setModalOpen(true);
               }}
               sx={{
-                bgcolor: T.indigoSoft, color: T.indigo,
-                '&:hover': { bgcolor: '#e0e7ff' },
-                width: 32, height: 32,
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
+                "&:hover": { bgcolor: "#e0e7ff" },
+                width: 32,
+                height: 32,
               }}
             >
               <FaEdit size={13} />
@@ -577,9 +563,11 @@ const Offers = () => {
               size="small"
               onClick={() => setDeleteConfirm(params.row.id)}
               sx={{
-                bgcolor: T.roseSoft, color: T.rose,
-                '&:hover': { bgcolor: '#fecaca' },
-                width: 32, height: 32,
+                bgcolor: T.roseSoft,
+                color: T.rose,
+                "&:hover": { bgcolor: "#fecaca" },
+                width: 32,
+                height: 32,
               }}
             >
               <FaTrash size={13} />
@@ -590,148 +578,27 @@ const Offers = () => {
     },
   ];
 
-  const renderMobileCards = () => (
-    <Stack spacing={2}>
-      {items?.length > 0 ? (
-        items.map((offer) => (
-          <Paper
-            key={offer.id}
-            elevation={0}
-            sx={{
-              borderRadius: T.radius,
-              border: `1px solid ${T.border}`,
-              bgcolor: T.surface,
-              p: 2,
-              '&:hover': {
-                boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
-                borderColor: T.borderStrong,
-              },
-            }}
-          >
-            <Stack direction="row" spacing={1.5} sx={{ mb: 1.5 }}>
-              <Box
-                component="img"
-                src={offer.image || 'https://via.placeholder.com/100x60'}
-                alt="offer"
-                sx={{
-                  width: 100, height: 60,
-                  borderRadius: 2, objectFit: 'cover',
-                  border: `1px solid ${T.border}`,
-                  flexShrink: 0,
-                }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }} noWrap>
-                  {offer.title}
-                </Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.3 }} noWrap>
-                  {offer.description || 'No description'}
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
-              <Box>
-                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Discount
-                </Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, mt: 0.2 }}>
-                  {offer.discountPercentage || 0}%
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Start
-                </Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
-                  {offer.startDate ? new Date(offer.startDate).toLocaleDateString('en-IN') : 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  End
-                </Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
-                  {offer.endDate ? new Date(offer.endDate).toLocaleDateString('en-IN') : 'N/A'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Status
-                </Typography>
-                <Chip
-                  label={offer.isActive ? 'Active' : 'Inactive'}
-                  size="small"
-                  sx={{
-                    mt: 0.2,
-                    bgcolor: offer.isActive ? T.emeraldSoft : '#f1f5f9',
-                    color: offer.isActive ? '#059669' : '#64748b',
-                    fontWeight: 700, fontSize: '0.6rem',
-                    height: 20, borderRadius: 999,
-                  }}
-                />
-              </Box>
-            </Stack>
-
-            <Stack
-              direction="row"
-              justifyContent="flex-end"
-              spacing={0.5}
-              sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
-            >
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setEditOffer(offer);
-                  setModalOpen(true);
-                }}
-                sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
-              >
-                <FaEdit size={12} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={() => setDeleteConfirm(offer.id)}
-                sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
-              >
-                <FaTrash size={12} />
-              </IconButton>
-            </Stack>
-          </Paper>
-        ))
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 4, borderRadius: T.radius,
-            border: `1px dashed ${T.border}`, textAlign: 'center',
-          }}
-        >
-          <OfferIcon sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
-          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
-            No offers found
-          </Typography>
-        </Paper>
-      )}
-    </Stack>
-  );
-
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
         <PanelHeader eyebrow="Promotions" title="Offers Management" />
       </Box>
 
-      {/* Filters */}
       <Paper
         elevation={0}
         sx={{
-          p: 2, borderRadius: T.radius,
+          p: 2,
+          borderRadius: T.radius,
           border: `1px solid ${T.border}`,
-          bgcolor: T.surface, mb: 2.5,
+          bgcolor: T.surface,
+          mb: 2.5,
         }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="center"
+        >
           <TextField
             fullWidth
             size="small"
@@ -748,11 +615,15 @@ const Offers = () => {
               },
             }}
             sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2, bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#c7d2fe' },
-                '&.Mui-focused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+                bgcolor: T.surfaceSoft,
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#c7d2fe" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.indigo,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -773,9 +644,11 @@ const Offers = () => {
             <IconButton
               onClick={fetchList}
               sx={{
-                bgcolor: T.indigoSoft, color: T.indigo,
-                width: 40, height: 40,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                bgcolor: T.indigoSoft,
+                color: T.indigo,
+                width: 40,
+                height: 40,
+                "&:hover": { bgcolor: "#e0e7ff" },
               }}
             >
               <Refresh sx={{ fontSize: 18 }} />
@@ -789,11 +662,16 @@ const Offers = () => {
               setModalOpen(true);
             }}
             sx={{
-              textTransform: 'none', fontWeight: 700,
-              fontSize: '0.78rem', borderRadius: 2,
-              bgcolor: T.indigo, px: 2.5, py: 1,
-              boxShadow: 'none', whiteSpace: 'nowrap',
-              '&:hover': { bgcolor: '#4f46e5' },
+              textTransform: "none",
+              fontWeight: 700,
+              fontSize: "0.78rem",
+              borderRadius: 2,
+              bgcolor: T.indigo,
+              px: 2.5,
+              py: 1,
+              boxShadow: "none",
+              whiteSpace: "nowrap",
+              "&:hover": { bgcolor: "#4f46e5" },
             }}
           >
             Create Offer
@@ -801,62 +679,68 @@ const Offers = () => {
         </Stack>
       </Paper>
 
-      {isMobile ? (
-        loading ? <Loader /> : renderMobileCards()
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1, borderRadius: T.radius,
-            border: `1px solid ${T.border}`,
-            bgcolor: T.surface, overflow: 'hidden',
-          }}
-        >
-          {loading ? (
-            <Loader />
-          ) : (
-            <DataGrid
-              rows={items}
-              columns={columns}
-              pageSize={pagination.limit}
-              rowsPerPageOptions={[5, 10, 25]}
-              page={pagination.page - 1}
-              onPageChange={(p) => dispatch(setPage(p + 1))}
-              onPageSizeChange={(s) => dispatch(setLimit(s))}
-              components={{ Toolbar: CustomToolbar }}
-              disableSelectionOnClick
-              autoHeight
-              rowHeight={64}
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: T.surfaceSoft, fontWeight: 700,
-                  color: T.textMuted, fontSize: '0.72rem',
-                  letterSpacing: '0.05em', textTransform: 'uppercase',
-                  borderBottom: `1px solid ${T.border}`,
-                  minHeight: '48px !important',
-                },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
-                '& .MuiDataGrid-row': {
-                  borderBottom: `1px solid ${T.border}`,
-                  transition: 'background-color 0.15s ease',
-                },
-                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                  display: 'flex', alignItems: 'center', py: 0,
-                },
-                '& .MuiDataGrid-cell:focus': { outline: 'none' },
-                '& .MuiDataGrid-columnSeparator': { display: 'none' },
-                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
-                '& .MuiDataGrid-toolbarContainer': {
-                  p: 1, borderBottom: `1px solid ${T.border}`,
-                },
-              }}
-            />
-          )}
-        </Paper>
-      )}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          overflow: "hidden",
+        }}
+      >
+        {loading ? (
+          <Loader />
+        ) : (
+          <DataGrid
+            rows={items}
+            columns={columns}
+            pageSize={pagination.limit}
+            rowsPerPageOptions={[5, 10, 25]}
+            page={pagination.page - 1}
+            onPageChange={(p) => dispatch(setPage(p + 1))}
+            onPageSizeChange={(s) => dispatch(setLimit(s))}
+            components={{ Toolbar: CustomToolbar }}
+            disableSelectionOnClick
+            autoHeight
+            rowHeight={64}
+            sx={{
+              border: "none",
+              "& .MuiDataGrid-columnHeaders": {
+                bgcolor: T.surfaceSoft,
+                fontWeight: 700,
+                color: T.textMuted,
+                fontSize: "0.72rem",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                borderBottom: `1px solid ${T.border}`,
+                minHeight: "48px !important",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+              "& .MuiDataGrid-row": {
+                borderBottom: `1px solid ${T.border}`,
+                transition: "background-color 0.15s ease",
+              },
+              "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "none",
+                display: "flex",
+                alignItems: "center",
+                py: 0,
+              },
+              "& .MuiDataGrid-cell:focus": { outline: "none" },
+              "& .MuiDataGrid-columnSeparator": { display: "none" },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: `1px solid ${T.border}`,
+              },
+              "& .MuiDataGrid-toolbarContainer": {
+                p: 1,
+                borderBottom: `1px solid ${T.border}`,
+              },
+            }}
+          />
+        )}
+      </Paper>
 
       <OfferModal
         open={modalOpen}
@@ -866,7 +750,6 @@ const Offers = () => {
         saving={saving}
       />
 
-      {/* Delete Dialog */}
       <Dialog
         open={!!deleteConfirm}
         onClose={() => !deleting && setDeleteConfirm(null)}
@@ -874,15 +757,24 @@ const Offers = () => {
       >
         <DialogTitle
           sx={{
-            fontWeight: 700, fontSize: '1.05rem', color: T.textPrimary,
-            display: 'flex', alignItems: 'center', gap: 1,
+            fontWeight: 700,
+            fontSize: "1.05rem",
+            color: T.textPrimary,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
           }}
         >
           <Box
             sx={{
-              width: 32, height: 32, borderRadius: 1.5,
-              bgcolor: T.roseSoft, color: T.rose,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 1.5,
+              bgcolor: T.roseSoft,
+              color: T.rose,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <FaTrash size={14} />
@@ -891,15 +783,20 @@ const Offers = () => {
         </DialogTitle>
         <Divider sx={{ borderColor: T.border }} />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
-            This will permanently delete the offer. This action cannot be undone.
+          <Typography sx={{ fontSize: "0.85rem", color: T.textMuted }}>
+            This will permanently delete the offer. This action cannot be
+            undone.
           </Typography>
         </Box>
         <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
           <Button
             onClick={() => setDeleteConfirm(null)}
             disabled={deleting}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: T.textMuted,
+            }}
           >
             Cancel
           </Button>
@@ -908,16 +805,18 @@ const Offers = () => {
             disabled={deleting}
             variant="contained"
             sx={{
-              textTransform: 'none', fontWeight: 700,
-              borderRadius: 2, bgcolor: T.rose,
-              '&:hover': { bgcolor: '#e11d48' },
-              boxShadow: 'none',
+              textTransform: "none",
+              fontWeight: 700,
+              borderRadius: 2,
+              bgcolor: T.rose,
+              "&:hover": { bgcolor: "#e11d48" },
+              boxShadow: "none",
             }}
           >
             {deleting ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
             ) : (
-              'Delete'
+              "Delete"
             )}
           </Button>
         </DialogActions>

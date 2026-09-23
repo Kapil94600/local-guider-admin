@@ -43,6 +43,11 @@ const T = {
   fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ FIX: Safe socket URL — handles trailing slash
+// ═══════════════════════════════════════════════════════════════
+const SOCKET_URL = (apiClient.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '');
+
 const getCurrentUserId = () => {
   try {
     const raw =
@@ -432,11 +437,13 @@ const ChatManagement = () => {
     fetchConversations();
   }, [fetchConversations]);
 
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX: Socket URL + chat:read (from P0-6)
+  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     const adminId = getCurrentUserId();
     if (!adminId) return;
 
-    const SOCKET_URL = apiClient.defaults.baseURL.replace('/api/v1', '');
     const socket = io(SOCKET_URL, { transports: ['websocket'] });
     socketRef.current = socket;
 
@@ -455,6 +462,12 @@ const ChatManagement = () => {
           prev.some((m) => m.id === message.id) ? prev : [...prev, message]
         );
         setUnreadCounts((prev) => ({ ...prev, [conversationId]: 0 }));
+
+        // ✅ FIX: Mark as read via canonical event name
+        socket.emit('chat:read', {
+          conversationId,
+          userId: adminId,
+        });
       } else if (conversationId) {
         setUnreadCounts((prev) => ({
           ...prev,
@@ -462,6 +475,11 @@ const ChatManagement = () => {
         }));
       }
       fetchConversations();
+    });
+
+    // ✅ Listen for read receipts (other user read our messages)
+    socket.on('chat:read', (data) => {
+      console.log('✅ chat:read:', data);
     });
 
     return () => {
@@ -479,6 +497,16 @@ const ChatManagement = () => {
       const data = res.data.data;
       setMessages(data.messages || []);
       setUnreadCounts((prev) => ({ ...prev, [conversation.id]: 0 }));
+
+      // ✅ FIX: Mark as read via canonical event name
+      const adminId = getCurrentUserId();
+      const socket = socketRef.current;
+      if (socket && socket.connected && adminId) {
+        socket.emit('chat:read', {
+          conversationId: conversation.id,
+          userId: adminId,
+        });
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');

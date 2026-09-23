@@ -1,114 +1,127 @@
 // src/redux/slices/guiderSlice.js
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import * as api from '../../api/admin';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import * as api from "../../api/admin";
+
+// ═══════════════════════════════════════════════════════════════
+// NORMALIZE guider (User → user for frontend)
+// ═══════════════════════════════════════════════════════════════
+const normalizeGuider = (guider) => {
+  if (!guider) return guider;
+  const userData = guider.User || guider.user || null;
+
+  return {
+    ...guider,
+    user: userData
+      ? {
+          id: userData.id,
+          email: userData.email,
+          phone: userData.phone,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImage: userData.profileImage,
+          role: userData.role,
+          isActive: userData.isActive,
+        }
+      : null,
+  };
+};
 
 // ---------- Thunks ----------
 
-// Fetch all guiders with user details
+// Fetch all guiders
 export const fetchGuiders = createAsyncThunk(
-  'guiders/fetchGuiders',
+  "guiders/fetchGuiders",
   async (params, { rejectWithValue }) => {
     try {
       const response = await api.getGuiders(params);
       let guiders = response.data?.data || response.data || [];
-      // Ensure it's an array
       if (!Array.isArray(guiders)) {
         guiders = guiders.rows || guiders.items || [];
       }
-
-      // Fetch user details for each guider
-      const guidersWithUsers = await Promise.all(
-        guiders.map(async (guider) => {
-          if (guider.userId) {
-            try {
-              const userRes = await api.getUser(guider.userId);
-              const user = userRes.data?.data || userRes.data;
-              // Merge user fields into guider
-              return {
-                ...guider,
-                user: {
-                  email: user.email,
-                  phone: user.phone,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  profileImage: user.profileImage,
-                },
-              };
-            } catch {
-              // If user fetch fails, return guider without user
-              return guider;
-            }
-          }
-          return guider;
-        })
-      );
-
-      return {
-        items: guidersWithUsers,
-        total: guidersWithUsers.length,
-      };
+      const normalized = guiders.map(normalizeGuider);
+      return { items: normalized, total: normalized.length };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch guiders');
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch guiders"
+      );
     }
   }
 );
 
-// Fetch a single guider by ID (with user details)
+// Fetch single guider
 export const fetchGuiderById = createAsyncThunk(
-  'guiders/fetchGuiderById',
+  "guiders/fetchGuiderById",
   async (id, { rejectWithValue }) => {
     try {
       const response = await api.getGuiderById(id);
-      let guider = response.data?.data || response.data;
-      // Fetch user if userId exists
-      if (guider.userId) {
-        try {
-          const userRes = await api.getUser(guider.userId);
-          const user = userRes.data?.data || userRes.data;
-          guider = { ...guider, user };
-        } catch {
-          // ignore
-        }
-      }
-      return guider;
+      const guider = response.data?.data || response.data;
+      return normalizeGuider(guider);
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch guider');
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch guider"
+      );
     }
   }
 );
 
+// Create
 export const createGuider = createAsyncThunk(
-  'guiders/createGuider',
+  "guiders/createGuider",
   async (data, { rejectWithValue }) => {
     try {
       const response = await api.createGuider(data);
-      return response.data?.data || response.data;
+      return normalizeGuider(response.data?.data || response.data);
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Create failed');
+      return rejectWithValue(
+        error.response?.data?.message || "Create failed"
+      );
     }
   }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ FIX B-5: Rename — updateGuiderStatus (was: updateGuider)
+// ═══════════════════════════════════════════════════════════════
+export const updateGuiderStatus = createAsyncThunk(
+  "guiders/updateGuiderStatus",
+  async ({ id, isActive }, { rejectWithValue }) => {
+    try {
+      const response = await api.updateGuiderStatus(id, isActive);
+      return normalizeGuider(response.data?.data || response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Update failed"
+      );
+    }
+  }
+);
+
+// ✅ NEW: Full update (name, bio, etc.)
 export const updateGuider = createAsyncThunk(
-  'guiders/updateGuider',
+  "guiders/updateGuider",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await api.updateGuiderStatus(id, data.isActive);
-      return response.data?.data || response.data;
+      const response = await api.updateGuider(id, data);
+      return normalizeGuider(response.data?.data || response.data);
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Update failed');
+      return rejectWithValue(
+        error.response?.data?.message || "Update failed"
+      );
     }
   }
 );
 
+// Delete
 export const deleteGuider = createAsyncThunk(
-  'guiders/deleteGuider',
+  "guiders/deleteGuider",
   async (id, { rejectWithValue }) => {
     try {
       await api.deleteGuider(id);
       return { id };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Delete failed');
+      return rejectWithValue(
+        error.response?.data?.message || "Delete failed"
+      );
     }
   }
 );
@@ -124,16 +137,25 @@ const initialState = {
 };
 
 const guiderSlice = createSlice({
-  name: 'guiders',
+  name: "guiders",
   initialState,
   reducers: {
-    setPage: (state, action) => { state.pagination.page = action.payload; },
-    setLimit: (state, action) => { state.pagination.limit = action.payload; },
-    clearSelected: (state) => { state.selectedItem = null; },
+    setPage: (state, action) => {
+      state.pagination.page = action.payload;
+    },
+    setLimit: (state, action) => {
+      state.pagination.limit = action.payload;
+    },
+    clearSelected: (state) => {
+      state.selectedItem = null;
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-      // fetchGuiders
+      // ── fetchGuiders ──
       .addCase(fetchGuiders.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -149,7 +171,7 @@ const guiderSlice = createSlice({
         state.items = [];
         state.total = 0;
       })
-      // fetchGuiderById
+      // ── fetchGuiderById ──
       .addCase(fetchGuiderById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -163,7 +185,7 @@ const guiderSlice = createSlice({
         state.error = action.payload || action.error.message;
         state.selectedItem = null;
       })
-      // createGuider
+      // ── createGuider ──
       .addCase(createGuider.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -177,7 +199,27 @@ const guiderSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // updateGuider
+      // ── ✅ FIX B-5: updateGuiderStatus ──
+      .addCase(updateGuiderStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateGuiderStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        const updated = action.payload;
+        const index = state.items.findIndex((item) => item.id === updated.id);
+        if (index !== -1) {
+          state.items[index] = { ...state.items[index], ...updated };
+        }
+        if (state.selectedItem && state.selectedItem.id === updated.id) {
+          state.selectedItem = { ...state.selectedItem, ...updated };
+        }
+      })
+      .addCase(updateGuiderStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+      // ── ✅ NEW: updateGuider (full) ──
       .addCase(updateGuider.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -185,7 +227,7 @@ const guiderSlice = createSlice({
       .addCase(updateGuider.fulfilled, (state, action) => {
         state.loading = false;
         const updated = action.payload;
-        const index = state.items.findIndex(item => item.id === updated.id);
+        const index = state.items.findIndex((item) => item.id === updated.id);
         if (index !== -1) {
           state.items[index] = { ...state.items[index], ...updated };
         }
@@ -197,14 +239,16 @@ const guiderSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // deleteGuider
+      // ── deleteGuider ──
       .addCase(deleteGuider.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(deleteGuider.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = state.items.filter(item => item.id !== action.payload.id);
+        state.items = state.items.filter(
+          (item) => item.id !== action.payload.id
+        );
         state.total = state.items.length;
         if (state.selectedItem && state.selectedItem.id === action.payload.id) {
           state.selectedItem = null;
@@ -217,5 +261,6 @@ const guiderSlice = createSlice({
   },
 });
 
-export const { setPage, setLimit, clearSelected } = guiderSlice.actions;
+export const { setPage, setLimit, clearSelected, clearError } =
+  guiderSlice.actions;
 export default guiderSlice.reducer;

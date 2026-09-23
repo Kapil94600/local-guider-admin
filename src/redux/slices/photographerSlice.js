@@ -2,9 +2,35 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as api from '../../api/admin';
 
+// ═══════════════════════════════════════════════════════════════
+// ✅ FIX: Backend ab User include karta hai (`photographer.User`)
+// — no more N+1 (per-photographer getUser calls)
+// — normalize `User` (bada) → `user` (chhota) for frontend compat
+// ═══════════════════════════════════════════════════════════════
+const normalizePhotographer = (photographer) => {
+  if (!photographer) return photographer;
+  const userData = photographer.User || photographer.user || null;
+
+  return {
+    ...photographer,
+    user: userData
+      ? {
+          id: userData.id,
+          email: userData.email,
+          phone: userData.phone,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImage: userData.profileImage,
+          role: userData.role,
+          isActive: userData.isActive,
+        }
+      : null,
+  };
+};
+
 // ---------- Thunks ----------
 
-// Fetch all photographers with user details
+// Fetch all photographers with user details (NO N+1)
 export const fetchPhotographers = createAsyncThunk(
   'photographers/fetchPhotographers',
   async (params, { rejectWithValue }) => {
@@ -15,34 +41,12 @@ export const fetchPhotographers = createAsyncThunk(
         photographers = photographers.rows || photographers.items || [];
       }
 
-      // Fetch user details for each photographer
-      const photographersWithUsers = await Promise.all(
-        photographers.map(async (photographer) => {
-          if (photographer.userId) {
-            try {
-              const userRes = await api.getUser(photographer.userId);
-              const user = userRes.data?.data || userRes.data;
-              return {
-                ...photographer,
-                user: {
-                  email: user.email,
-                  phone: user.phone,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  profileImage: user.profileImage,
-                },
-              };
-            } catch {
-              return photographer;
-            }
-          }
-          return photographer;
-        })
-      );
+      // ✅ No per-photographer getUser() calls
+      const normalized = photographers.map(normalizePhotographer);
 
       return {
-        items: photographersWithUsers,
-        total: photographersWithUsers.length,
+        items: normalized,
+        total: normalized.length,
       };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch photographers');
@@ -50,33 +54,28 @@ export const fetchPhotographers = createAsyncThunk(
   }
 );
 
-// Fetch single photographer by ID (with user details)
+// Fetch single photographer by ID
 export const fetchPhotographerById = createAsyncThunk(
   'photographers/fetchPhotographerById',
   async (id, { rejectWithValue }) => {
     try {
       const response = await api.getPhotographerById(id);
-      let photographer = response.data?.data || response.data;
-      if (photographer.userId) {
-        try {
-          const userRes = await api.getUser(photographer.userId);
-          const user = userRes.data?.data || userRes.data;
-          photographer = { ...photographer, user };
-        } catch {}
-      }
-      return photographer;
+      const photographer = response.data?.data || response.data;
+      // ✅ No getUser() call — backend already includes User
+      return normalizePhotographer(photographer);
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch photographer');
     }
   }
 );
 
+// ✅ Create photographer
 export const createPhotographer = createAsyncThunk(
   'photographers/createPhotographer',
   async (data, { rejectWithValue }) => {
     try {
       const response = await api.createPhotographer(data);
-      return response.data?.data || response.data;
+      return normalizePhotographer(response.data?.data || response.data);
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Create failed');
     }
@@ -88,7 +87,7 @@ export const updatePhotographerStatus = createAsyncThunk(
   async ({ id, status }, { rejectWithValue }) => {
     try {
       const response = await api.updatePhotographerStatus(id, status);
-      return response.data?.data || response.data;
+      return normalizePhotographer(response.data?.data || response.data);
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Status update failed');
     }
@@ -127,7 +126,6 @@ const photographerSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // fetchPhotographers
       .addCase(fetchPhotographers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -143,7 +141,6 @@ const photographerSlice = createSlice({
         state.items = [];
         state.total = 0;
       })
-      // fetchPhotographerById
       .addCase(fetchPhotographerById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -157,7 +154,6 @@ const photographerSlice = createSlice({
         state.error = action.payload || action.error.message;
         state.selectedItem = null;
       })
-      // createPhotographer
       .addCase(createPhotographer.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -171,7 +167,6 @@ const photographerSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // updatePhotographerStatus
       .addCase(updatePhotographerStatus.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -189,7 +184,6 @@ const photographerSlice = createSlice({
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      // deletePhotographer
       .addCase(deletePhotographer.pending, (state) => {
         state.loading = true;
         state.error = null;

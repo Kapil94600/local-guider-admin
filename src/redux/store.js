@@ -1,5 +1,6 @@
 // src/redux/store.js
 import { configureStore } from '@reduxjs/toolkit';
+
 import authReducer from './slices/authSlice';
 import dashboardReducer from './slices/dashboardSlice';
 import userReducer from './slices/userSlice';
@@ -14,7 +15,6 @@ import notificationReducer from './slices/notificationSlice';
 import sliderReducer from './slices/sliderSlice';
 import offerReducer from './slices/offerSlice';
 import idCardReducer from './slices/idCardSlice';
-// ✅ favoriteReducer removed
 
 export const store = configureStore({
   reducer: {
@@ -32,6 +32,14 @@ export const store = configureStore({
     sliders: sliderReducer,
     offers: offerReducer,
     idCards: idCardReducer,
-    // ✅ favorites removed from store
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Allow non-serializable values in actions if needed
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      },
+    }),
 });
+
+export default store;

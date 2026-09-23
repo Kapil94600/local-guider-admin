@@ -1,8 +1,8 @@
 // src/pages/Login.jsx
-import { useState, useEffect, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { useState, useEffect, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   FaPhoneAlt,
   FaArrowRight,
@@ -13,13 +13,13 @@ import {
   FaCamera,
   FaUsers,
   FaStar,
-} from 'react-icons/fa';
+} from "react-icons/fa";
 import {
   sendOtpThunk,
   verifyOtpThunk,
   clearError,
   resetOtpState,
-} from '../redux/slices/authSlice';
+} from "../redux/slices/authSlice";
 
 const OTP_LENGTH = 6;
 
@@ -29,13 +29,13 @@ const Login = () => {
   const { isLoading, error, otpSent, phone, token, user } = useSelector(
     (state) => state.auth
   );
-  const [mobile, setMobile] = useState('');
-  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
   const otpRefs = useRef([]);
 
   useEffect(() => {
     if (token && user) {
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
     }
     dispatch(clearError());
     return () => dispatch(resetOtpState());
@@ -54,32 +54,32 @@ const Login = () => {
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (mobile.length < 10) {
-      toast.error('Enter a valid 10-digit mobile number');
+      toast.error("Enter a valid 10-digit mobile number");
       return;
     }
     const result = await dispatch(sendOtpThunk(mobile));
     if (sendOtpThunk.fulfilled.match(result)) {
-      toast.success('OTP sent successfully');
+      toast.success("OTP sent successfully");
     } else {
-      toast.error(result.payload || 'Failed to send OTP');
+      toast.error(result.payload || "Failed to send OTP");
     }
   };
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    const otpString = otp.join('');
+    const otpString = otp.join("");
     if (otpString.length < OTP_LENGTH) {
       toast.error(`Enter ${OTP_LENGTH}-digit OTP`);
       return;
     }
-    const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
+    const formattedPhone = mobile.startsWith("+") ? mobile : `+91${mobile}`;
     const result = await dispatch(
       verifyOtpThunk({ phone: formattedPhone, otp: otpString })
     );
     if (verifyOtpThunk.fulfilled.match(result)) {
-      toast.success('Login successful');
+      toast.success("Login successful");
     } else {
-      toast.error(result.payload || 'Verification failed');
+      toast.error(result.payload || "Verification failed");
     }
   };
 
@@ -94,13 +94,13 @@ const Login = () => {
   };
 
   const handleOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
-    if (e.key === 'ArrowLeft' && index > 0) {
+    if (e.key === "ArrowLeft" && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
-    if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+    if (e.key === "ArrowRight" && index < OTP_LENGTH - 1) {
       otpRefs.current[index + 1]?.focus();
     }
   };
@@ -108,12 +108,12 @@ const Login = () => {
   const handleOtpPaste = (e) => {
     e.preventDefault();
     const pasted = e.clipboardData
-      .getData('text')
-      .replace(/\D/g, '')
+      .getData("text")
+      .replace(/\D/g, "")
       .slice(0, OTP_LENGTH);
     if (!pasted) return;
-    const newOtp = Array(OTP_LENGTH).fill('');
-    pasted.split('').forEach((ch, i) => (newOtp[i] = ch));
+    const newOtp = Array(OTP_LENGTH).fill("");
+    pasted.split("").forEach((ch, i) => (newOtp[i] = ch));
     setOtp(newOtp);
     const nextIndex = Math.min(pasted.length, OTP_LENGTH - 1);
     otpRefs.current[nextIndex]?.focus();
@@ -132,8 +132,8 @@ const Login = () => {
           className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)',
-            backgroundSize: '56px 56px',
+              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
           }}
         />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.55)_100%)]" />
@@ -143,7 +143,6 @@ const Login = () => {
       <div className="relative z-10 h-full overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 lg:gap-14 items-center">
-
             {/* ───── LEFT BRAND PANEL ───── */}
             <div className="hidden lg:flex flex-col justify-center text-white pr-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.12] w-fit mb-6 backdrop-blur-md">
@@ -170,9 +169,9 @@ const Login = () => {
 
               <div className="space-y-4 mb-10">
                 {[
-                  { icon: FaUsers, label: 'User Management', desc: 'Roles, KYC, wallets' },
-                  { icon: FaMapMarkedAlt, label: 'Live Bookings', desc: 'Track trips in real-time' },
-                  { icon: FaCamera, label: 'Content Control', desc: 'Curate guides & galleries' },
+                  { icon: FaUsers, label: "User Management", desc: "Roles, KYC, wallets" },
+                  { icon: FaMapMarkedAlt, label: "Live Bookings", desc: "Track trips in real-time" },
+                  { icon: FaCamera, label: "Content Control", desc: "Curate guides & galleries" },
                 ].map((f, i) => (
                   <div
                     key={i}
@@ -182,8 +181,12 @@ const Login = () => {
                       <f.icon className="text-indigo-200 text-base" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white/90">{f.label}</div>
-                      <div className="text-xs text-white/50 mt-0.5">{f.desc}</div>
+                      <div className="text-sm font-semibold text-white/90">
+                        {f.label}
+                      </div>
+                      <div className="text-xs text-white/50 mt-0.5">
+                        {f.desc}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -191,7 +194,7 @@ const Login = () => {
 
               <div className="flex items-center gap-4 pt-6 border-t border-white/[0.08]">
                 <div className="flex -space-x-2">
-                  {['#6366f1', '#8b5cf6', '#ec4899', '#10b981'].map((c, i) => (
+                  {["#6366f1", "#8b5cf6", "#ec4899", "#10b981"].map((c, i) => (
                     <div
                       key={i}
                       className="w-9 h-9 rounded-full border-2 border-[#0a0e27] flex items-center justify-center text-xs font-bold text-white"
@@ -208,7 +211,9 @@ const Login = () => {
                     ))}
                   </div>
                   <div className="text-xs text-white/50">
-                    Trusted by <span className="text-white/80 font-semibold">10,000+</span> travelers
+                    Trusted by{" "}
+                    <span className="text-white/80 font-semibold">10,000+</span>{" "}
+                    travelers
                   </div>
                 </div>
               </div>
@@ -216,7 +221,7 @@ const Login = () => {
 
             {/* ───── RIGHT LOGIN CARD ───── */}
             <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-              {/* Logo — WHITE circle + WHITE rings */}
+              {/* Logo */}
               <div className="flex justify-center mb-7">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 rounded-full blur-2xl opacity-60 animate-pulse" />
@@ -229,8 +234,9 @@ const Login = () => {
                         alt="Local Guider"
                         className="w-full h-full object-cover rounded-full"
                         onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                          e.currentTarget.style.display = "none";
+                          e.currentTarget.nextElementSibling.style.display =
+                            "flex";
                         }}
                       />
                       <div className="absolute inset-0 hidden items-center justify-center text-3xl">
@@ -250,29 +256,33 @@ const Login = () => {
                   {/* Header */}
                   <div className="text-center mb-7 relative">
                     <h1 className="text-[26px] sm:text-3xl font-bold text-white tracking-tight">
-                      {otpSent ? 'Verify your identity' : 'Welcome back'}
+                      {otpSent ? "Verify your identity" : "Welcome back"}
                     </h1>
                     <p className="text-indigo-200/60 mt-2 text-sm leading-relaxed">
                       {otpSent ? (
                         <>
-                          We sent a {OTP_LENGTH}-digit code to{' '}
+                          We sent a {OTP_LENGTH}-digit code to{" "}
                           <span className="text-indigo-200 font-medium">
                             {phone || `+91 ${mobile}`}
                           </span>
                         </>
                       ) : (
-                        'Sign in to continue to your admin dashboard'
+                        "Sign in to continue to your admin dashboard"
                       )}
                     </p>
 
                     <div className="flex items-center justify-center gap-2 mt-4">
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-full">
                         <FaShieldAlt className="text-emerald-400 text-[10px]" />
-                        <span className="text-emerald-300 text-[11px] font-medium">Secure</span>
+                        <span className="text-emerald-300 text-[11px] font-medium">
+                          Secure
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/[0.08] border border-blue-500/20 rounded-full">
                         <FaLock className="text-blue-400 text-[10px]" />
-                        <span className="text-blue-300 text-[11px] font-medium">Encrypted</span>
+                        <span className="text-blue-300 text-[11px] font-medium">
+                          Encrypted
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -289,13 +299,17 @@ const Login = () => {
                             <FaPhoneAlt className="text-indigo-300/60 group-focus-within:text-indigo-400 transition-colors text-sm" />
                           </div>
                           <div className="absolute inset-y-0 left-11 flex items-center pointer-events-none">
-                            <span className="text-white/70 font-medium text-sm">+91</span>
+                            <span className="text-white/70 font-medium text-sm">
+                              +91
+                            </span>
                             <span className="ml-2 h-4 w-px bg-white/15" />
                           </div>
                           <input
                             type="tel"
                             value={mobile}
-                            onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) =>
+                              setMobile(e.target.value.replace(/\D/g, ""))
+                            }
                             placeholder="98765 43210"
                             maxLength="10"
                             autoFocus
@@ -326,7 +340,10 @@ const Login = () => {
                           ) : (
                             <>
                               Send OTP
-                              <FaArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
+                              <FaArrowRight
+                                size={13}
+                                className="transition-transform group-hover:translate-x-1"
+                              />
                             </>
                           )}
                         </span>
@@ -339,7 +356,10 @@ const Login = () => {
                         <label className="block text-[11px] font-semibold text-indigo-200/70 uppercase tracking-[0.12em] mb-3 text-center">
                           Enter {OTP_LENGTH}-Digit Code
                         </label>
-                        <div className="flex justify-center gap-2 sm:gap-2.5" onPaste={handleOtpPaste}>
+                        <div
+                          className="flex justify-center gap-2 sm:gap-2.5"
+                          onPaste={handleOtpPaste}
+                        >
                           {otp.map((digit, i) => (
                             <input
                               key={i}
@@ -347,18 +367,20 @@ const Login = () => {
                               type="text"
                               inputMode="numeric"
                               value={digit}
-                              onChange={(e) => handleOtpChange(i, e.target.value)}
+                              onChange={(e) =>
+                                handleOtpChange(i, e.target.value)
+                              }
                               onKeyDown={(e) => handleOtpKeyDown(i, e)}
                               maxLength="1"
                               className={`w-11 sm:w-12 text-center text-xl font-bold rounded-xl bg-white/[0.04] border text-white outline-none transition-all duration-200
                                 ${
                                   digit
-                                    ? 'border-indigo-400/60 bg-indigo-500/[0.08] shadow-[0_0_0_3px_rgba(99,102,241,0.1)]'
-                                    : 'border-white/[0.1]'
+                                    ? "border-indigo-400/60 bg-indigo-500/[0.08] shadow-[0_0_0_3px_rgba(99,102,241,0.1)]"
+                                    : "border-white/[0.1]"
                                 }
                                 focus:border-indigo-400/70 focus:bg-white/[0.08] focus:ring-4 focus:ring-indigo-500/15
                               `}
-                              style={{ height: '3.25rem' }}
+                              style={{ height: "3.25rem" }}
                             />
                           ))}
                         </div>
@@ -366,7 +388,7 @@ const Login = () => {
 
                       <button
                         type="submit"
-                        disabled={isLoading || otp.join('').length < OTP_LENGTH}
+                        disabled={isLoading || otp.join("").length < OTP_LENGTH}
                         className="group relative w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-[15px] text-white shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none overflow-hidden transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 transition-all duration-300 group-hover:from-emerald-400 group-hover:via-teal-400 group-hover:to-emerald-500" />
@@ -390,7 +412,7 @@ const Login = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setOtp(Array(OTP_LENGTH).fill(''));
+                            setOtp(Array(OTP_LENGTH).fill(""));
                             dispatch(resetOtpState());
                           }}
                           className="text-indigo-300/70 hover:text-white transition-colors font-medium"
@@ -409,14 +431,17 @@ const Login = () => {
                     </form>
                   )}
 
-                  {/* ⚡⚡ reCAPTCHA container — VISIBLE inside the card ⚡⚡ */}
+                  {/* ⚡ reCAPTCHA container — VISIBLE + no overlap */}
                   <div
                     id="recaptcha-container"
                     style={{
-                      marginTop: '15px',
-                      minHeight: '0px',
-                      display: 'flex',
-                      justifyContent: 'center',
+                      marginTop: "20px",
+                      minHeight: "78px",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      position: "relative",
+                      zIndex: 1,
                     }}
                   ></div>
 
@@ -430,7 +455,7 @@ const Login = () => {
               </div>
 
               <p className="text-center text-xs text-white/30 mt-5">
-                Trouble signing in?{' '}
+                Trouble signing in?{" "}
                 <span className="text-indigo-300/70 hover:text-indigo-200 cursor-pointer transition-colors">
                   Contact support
                 </span>

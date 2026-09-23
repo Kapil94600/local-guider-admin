@@ -1,55 +1,83 @@
 // src/pages/WithdrawalRequests.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
-  Box, Paper, Typography, Button, IconButton, Chip, Avatar,
-  Stack, TextField, InputAdornment, Dialog, DialogTitle, DialogContent,
-  DialogActions, FormControl, InputLabel, Select, MenuItem,
-  Tooltip, Divider, CircularProgress,
-} from '@mui/material';
+  Box,
+  Paper,
+  Typography,
+  Button,
+  IconButton,
+  Chip,
+  Avatar,
+  Stack,
+  TextField,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tooltip,
+  Divider,
+  CircularProgress,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
 import {
-  Search, Check, Close, Visibility, Refresh, Inbox,
-  AccountBalance, Person,
-} from '@mui/icons-material';
+  Search,
+  Check,
+  Close,
+  Visibility,
+  Refresh,
+  Inbox,
+  AccountBalance,
+  Person,
+} from "@mui/icons-material";
 import {
-  DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport,
-} from '@mui/x-data-grid';
-import { toast } from 'react-toastify';
-import apiClient from '../api/axios';
-import Loader from '../components/Loader';
-import PanelHeader from '../components/PanelHeader';
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarFilterButton,
+  GridToolbarExport,
+} from "@mui/x-data-grid";
+import { toast } from "react-toastify";
+import apiClient from "../api/axios";
+import Loader from "../components/Loader";
+import PanelHeader from "../components/PanelHeader";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS
 // ═══════════════════════════════════════════════════════════════
 const T = {
-  border: '#eef1f6',
-  borderStrong: '#e2e8f0',
-  surface: '#ffffff',
-  surfaceSoft: '#fafbfc',
-  bgRowHover: '#fafbfc',
-  textPrimary: '#0b1220',
-  textMuted: '#64748b',
-  textFaint: '#94a3b8',
-  indigo: '#6366f1',
-  indigoSoft: '#eef2ff',
-  violet: '#8b5cf6',
-  violetSoft: '#ede9fe',
-  emerald: '#10b981',
-  emeraldSoft: '#d1fae5',
-  rose: '#f43f5e',
-  roseSoft: '#ffe4e6',
-  amber: '#f59e0b',
-  amberSoft: '#fef3c7',
-  sky: '#0ea5e9',
-  skySoft: '#e0f2fe',
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  bgRowHover: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  indigoSoft: "#eef2ff",
+  violet: "#8b5cf6",
+  violetSoft: "#ede9fe",
+  emerald: "#10b981",
+  emeraldSoft: "#d1fae5",
+  rose: "#f43f5e",
+  roseSoft: "#ffe4e6",
+  amber: "#f59e0b",
+  amberSoft: "#fef3c7",
+  sky: "#0ea5e9",
+  skySoft: "#e0f2fe",
   radius: 3,
   fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
 
 const STATUS_STYLES = {
-  PENDING: { bg: T.amberSoft, color: '#b45309', label: 'Pending' },
-  APPROVED: { bg: T.emeraldSoft, color: '#047857', label: 'Approved' },
-  REJECTED: { bg: T.roseSoft, color: '#be123c', label: 'Rejected' },
+  PENDING: { bg: T.amberSoft, color: "#b45309", label: "Pending" },
+  APPROVED: { bg: T.emeraldSoft, color: "#047857", label: "Approved" },
+  REJECTED: { bg: T.roseSoft, color: "#be123c", label: "Rejected" },
 };
 
 const CustomToolbar = () => (
@@ -71,9 +99,9 @@ const SectionHeader = ({ icon, title, accent = T.indigo }) => (
         borderRadius: 1.5,
         bgcolor: `${accent}12`,
         color: accent,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         flexShrink: 0,
       }}
     >
@@ -83,7 +111,7 @@ const SectionHeader = ({ icon, title, accent = T.indigo }) => (
       sx={{
         fontFamily: T.fontDisplay,
         fontWeight: 700,
-        fontSize: '0.9rem',
+        fontSize: "0.9rem",
         color: T.textPrimary,
       }}
     >
@@ -99,25 +127,25 @@ const InfoRow = ({ label, value }) => (
   <Box sx={{ py: 1 }}>
     <Typography
       sx={{
-        fontSize: '0.62rem',
+        fontSize: "0.62rem",
         fontWeight: 700,
         color: T.textFaint,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
       }}
     >
       {label}
     </Typography>
     <Typography
       sx={{
-        fontSize: '0.85rem',
+        fontSize: "0.85rem",
         fontWeight: 600,
         color: T.textPrimary,
         mt: 0.3,
-        wordBreak: 'break-word',
+        wordBreak: "break-word",
       }}
     >
-      {value || 'N/A'}
+      {value || "N/A"}
     </Typography>
   </Box>
 );
@@ -126,23 +154,27 @@ const InfoRow = ({ label, value }) => (
 // WITHDRAWAL REQUESTS
 // ═══════════════════════════════════════════════════════════════
 const WithdrawalRequests = () => {
+  const theme = useTheme();
+  // ✅ FIX A-1: useMediaQuery instead of window.innerWidth
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [viewModal, setViewModal] = useState(null);
   const [processing, setProcessing] = useState(null);
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: null });
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/withdrawal/all');
+      const res = await apiClient.get("/withdrawal/all");
       const data = res.data?.data || res.data;
       setRequests(Array.isArray(data) ? data : data.rows || []);
     } catch (error) {
-      toast.error('Failed to fetch withdrawal requests');
+      toast.error("Failed to fetch withdrawal requests");
     } finally {
       setLoading(false);
     }
@@ -155,12 +187,12 @@ const WithdrawalRequests = () => {
   const handleApprove = async (id) => {
     setProcessing(id);
     try {
-      await apiClient.put(`/withdrawal/${id}/status`, { status: 'APPROVED' });
-      toast.success('Withdrawal approved');
+      await apiClient.put(`/withdrawal/${id}/status`, { status: "APPROVED" });
+      toast.success("Withdrawal approved");
       setViewModal(null);
       fetchRequests();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to approve');
+      toast.error(error.response?.data?.message || "Failed to approve");
     } finally {
       setProcessing(null);
     }
@@ -168,7 +200,7 @@ const WithdrawalRequests = () => {
 
   const openRejectDialog = (id) => {
     setRejectDialog({ open: true, id });
-    setRejectReason('');
+    setRejectReason("");
   };
 
   const handleReject = async () => {
@@ -177,16 +209,16 @@ const WithdrawalRequests = () => {
     setProcessing(id);
     try {
       await apiClient.put(`/withdrawal/${id}/status`, {
-        status: 'REJECTED',
+        status: "REJECTED",
         adminMessage: rejectReason,
       });
-      toast.success('Withdrawal rejected');
+      toast.success("Withdrawal rejected");
       setRejectDialog({ open: false, id: null });
-      setRejectReason('');
+      setRejectReason("");
       setViewModal(null);
       fetchRequests();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to reject');
+      toast.error(error.response?.data?.message || "Failed to reject");
     } finally {
       setProcessing(null);
     }
@@ -199,19 +231,21 @@ const WithdrawalRequests = () => {
       r.User?.lastName?.toLowerCase().includes(search) ||
       r.User?.email?.toLowerCase().includes(search) ||
       r.bankName?.toLowerCase().includes(search);
-    const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
+    const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const columns = [
     {
-      field: 'User',
-      headerName: 'User',
+      field: "User",
+      headerName: "User",
       flex: 1.3,
       minWidth: 200,
       renderCell: (params) => {
-        const name = `${params.row.User?.firstName || ''} ${params.row.User?.lastName || ''}`.trim();
-        const initial = (params.row.User?.firstName || 'U').charAt(0);
+        const name = `${params.row.User?.firstName || ""} ${
+          params.row.User?.lastName || ""
+        }`.trim();
+        const initial = (params.row.User?.firstName || "U").charAt(0);
         return (
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Avatar
@@ -221,8 +255,8 @@ const WithdrawalRequests = () => {
                 background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
                 fontSize: 14,
                 fontWeight: 700,
-                border: '2px solid #fff',
-                boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
+                border: "2px solid #fff",
+                boxShadow: "0 2px 6px rgba(15,23,42,0.1)",
               }}
             >
               {initial}
@@ -230,17 +264,20 @@ const WithdrawalRequests = () => {
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 sx={{
-                  fontSize: '0.82rem',
+                  fontSize: "0.82rem",
                   fontWeight: 700,
                   color: T.textPrimary,
                   lineHeight: 1.2,
                 }}
                 noWrap
               >
-                {name || 'Unknown'}
+                {name || "Unknown"}
               </Typography>
-              <Typography sx={{ fontSize: '0.7rem', color: T.textFaint }} noWrap>
-                {params.row.User?.email || 'N/A'}
+              <Typography
+                sx={{ fontSize: "0.7rem", color: T.textFaint }}
+                noWrap
+              >
+                {params.row.User?.email || "N/A"}
               </Typography>
             </Box>
           </Stack>
@@ -248,17 +285,17 @@ const WithdrawalRequests = () => {
       },
     },
     {
-      field: 'amount',
-      headerName: 'Amount',
+      field: "amount",
+      headerName: "Amount",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) => (
         <Typography
           sx={{
             fontWeight: 800,
-            color: '#047857',
-            fontFamily: 'monospace',
-            fontSize: '0.82rem',
+            color: "#047857",
+            fontFamily: "monospace",
+            fontSize: "0.82rem",
           }}
         >
           ₹{parseFloat(params.row.amount || 0).toFixed(2)}
@@ -266,59 +303,60 @@ const WithdrawalRequests = () => {
       ),
     },
     {
-      field: 'bankName',
-      headerName: 'Bank',
+      field: "bankName",
+      headerName: "Bank",
       flex: 0.8,
       minWidth: 120,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {params.row.bankName || '—'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {params.row.bankName || "—"}
         </Typography>
       ),
     },
     {
-      field: 'accountNumber',
-      headerName: 'Account No',
+      field: "accountNumber",
+      headerName: "Account No",
       flex: 1,
       minWidth: 140,
       renderCell: (params) => (
         <Typography
           sx={{
-            fontSize: '0.72rem',
+            fontSize: "0.72rem",
             color: T.textMuted,
-            fontFamily: 'monospace',
+            fontFamily: "monospace",
           }}
           noWrap
         >
-          {params.row.accountNumber || '—'}
+          {params.row.accountNumber || "—"}
         </Typography>
       ),
     },
     {
-      field: 'ifscCode',
-      headerName: 'IFSC',
+      field: "ifscCode",
+      headerName: "IFSC",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) => (
         <Typography
           sx={{
-            fontSize: '0.72rem',
+            fontSize: "0.72rem",
             color: T.textMuted,
-            fontFamily: 'monospace',
+            fontFamily: "monospace",
           }}
           noWrap
         >
-          {params.row.ifscCode || '—'}
+          {params.row.ifscCode || "—"}
         </Typography>
       ),
     },
     {
-      field: 'status',
-      headerName: 'Status',
+      field: "status",
+      headerName: "Status",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) => {
-        const style = STATUS_STYLES[params.row.status] || STATUS_STYLES.PENDING;
+        const style =
+          STATUS_STYLES[params.row.status] || STATUS_STYLES.PENDING;
         return (
           <Chip
             label={style.label}
@@ -327,7 +365,7 @@ const WithdrawalRequests = () => {
               bgcolor: style.bg,
               color: style.color,
               fontWeight: 700,
-              fontSize: '0.65rem',
+              fontSize: "0.65rem",
               height: 22,
               borderRadius: 999,
             }}
@@ -336,23 +374,23 @@ const WithdrawalRequests = () => {
       },
     },
     {
-      field: 'createdAt',
-      headerName: 'Requested',
+      field: "createdAt",
+      headerName: "Requested",
       flex: 1,
       minWidth: 140,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.72rem', color: T.textMuted }}>
-          {new Date(params.row.createdAt).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
+        <Typography sx={{ fontSize: "0.72rem", color: T.textMuted }}>
+          {new Date(params.row.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
           })}
         </Typography>
       ),
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
+      field: "actions",
+      headerName: "Actions",
       flex: 1.2,
       minWidth: 160,
       sortable: false,
@@ -365,7 +403,7 @@ const WithdrawalRequests = () => {
               sx={{
                 bgcolor: T.skySoft,
                 color: T.sky,
-                '&:hover': { bgcolor: '#bae6fd' },
+                "&:hover": { bgcolor: "#bae6fd" },
                 width: 32,
                 height: 32,
               }}
@@ -373,7 +411,7 @@ const WithdrawalRequests = () => {
               <Visibility sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          {params.row.status === 'PENDING' && (
+          {params.row.status === "PENDING" && (
             <>
               <Tooltip title="Approve">
                 <span>
@@ -383,14 +421,14 @@ const WithdrawalRequests = () => {
                     disabled={processing === params.row.id}
                     sx={{
                       bgcolor: T.emeraldSoft,
-                      color: '#059669',
-                      '&:hover': { bgcolor: '#a7f3d0' },
+                      color: "#059669",
+                      "&:hover": { bgcolor: "#a7f3d0" },
                       width: 32,
                       height: 32,
                     }}
                   >
                     {processing === params.row.id ? (
-                      <CircularProgress size={14} sx={{ color: '#059669' }} />
+                      <CircularProgress size={14} sx={{ color: "#059669" }} />
                     ) : (
                       <Check sx={{ fontSize: 16 }} />
                     )}
@@ -406,7 +444,7 @@ const WithdrawalRequests = () => {
                     sx={{
                       bgcolor: T.roseSoft,
                       color: T.rose,
-                      '&:hover': { bgcolor: '#fecaca' },
+                      "&:hover": { bgcolor: "#fecaca" },
                       width: 32,
                       height: 32,
                     }}
@@ -426,7 +464,9 @@ const WithdrawalRequests = () => {
     <Stack spacing={2}>
       {filteredRequests.length > 0 ? (
         filteredRequests.map((req) => {
-          const name = `${req.User?.firstName || ''} ${req.User?.lastName || ''}`.trim();
+          const name = `${req.User?.firstName || ""} ${
+            req.User?.lastName || ""
+          }`.trim();
           const style = STATUS_STYLES[req.status] || STATUS_STYLES.PENDING;
           return (
             <Paper
@@ -437,37 +477,46 @@ const WithdrawalRequests = () => {
                 border: `1px solid ${T.border}`,
                 bgcolor: T.surface,
                 p: 2,
-                '&:hover': {
-                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                "&:hover": {
+                  boxShadow: "0 12px 24px -16px rgba(15,23,42,0.15)",
                   borderColor: T.borderStrong,
                 },
               }}
             >
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+              <Stack
+                direction="row"
+                spacing={1.5}
+                alignItems="center"
+                sx={{ mb: 1.5 }}
+              >
                 <Avatar
                   sx={{
                     width: 44,
                     height: 44,
                     background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
                     fontWeight: 700,
-                    fontSize: '0.9rem',
-                    border: '2px solid #fff',
+                    fontSize: "0.9rem",
+                    border: "2px solid #fff",
                   }}
                 >
-                  {(req.User?.firstName || 'U').charAt(0)}
+                  {(req.User?.firstName || "U").charAt(0)}
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
-                    sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }}
+                    sx={{
+                      fontSize: "0.88rem",
+                      fontWeight: 700,
+                      color: T.textPrimary,
+                    }}
                     noWrap
                   >
-                    {name || 'Unknown'}
+                    {name || "Unknown"}
                   </Typography>
                   <Typography
-                    sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.2 }}
+                    sx={{ fontSize: "0.72rem", color: T.textMuted, mt: 0.2 }}
                     noWrap
                   >
-                    {req.bankName || 'Bank'}
+                    {req.bankName || "Bank"}
                   </Typography>
                 </Box>
                 <Chip
@@ -477,7 +526,7 @@ const WithdrawalRequests = () => {
                     bgcolor: style.bg,
                     color: style.color,
                     fontWeight: 700,
-                    fontSize: '0.62rem',
+                    fontSize: "0.62rem",
                     height: 22,
                     borderRadius: 999,
                   }}
@@ -486,19 +535,51 @@ const WithdrawalRequests = () => {
 
               <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
                 <Box>
-                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     Amount
                   </Typography>
-                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, color: '#047857', fontFamily: 'monospace', mt: 0.2 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.9rem",
+                      fontWeight: 800,
+                      color: "#047857",
+                      fontFamily: "monospace",
+                      mt: 0.2,
+                    }}
+                  >
                     ₹{parseFloat(req.amount || 0).toFixed(2)}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     Account
                   </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: T.textPrimary, mt: 0.2, fontFamily: 'monospace' }}>
-                    ****{req.accountNumber?.slice(-4) || '—'}
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      color: T.textPrimary,
+                      mt: 0.2,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    ****{req.accountNumber?.slice(-4) || "—"}
                   </Typography>
                 </Box>
               </Stack>
@@ -512,17 +593,27 @@ const WithdrawalRequests = () => {
                 <IconButton
                   size="small"
                   onClick={() => setViewModal(req)}
-                  sx={{ bgcolor: T.skySoft, color: T.sky, width: 30, height: 30 }}
+                  sx={{
+                    bgcolor: T.skySoft,
+                    color: T.sky,
+                    width: 30,
+                    height: 30,
+                  }}
                 >
                   <Visibility sx={{ fontSize: 15 }} />
                 </IconButton>
-                {req.status === 'PENDING' && (
+                {req.status === "PENDING" && (
                   <>
                     <IconButton
                       size="small"
                       onClick={() => handleApprove(req.id)}
                       disabled={processing === req.id}
-                      sx={{ bgcolor: T.emeraldSoft, color: '#059669', width: 30, height: 30 }}
+                      sx={{
+                        bgcolor: T.emeraldSoft,
+                        color: "#059669",
+                        width: 30,
+                        height: 30,
+                      }}
                     >
                       <Check sx={{ fontSize: 15 }} />
                     </IconButton>
@@ -530,7 +621,12 @@ const WithdrawalRequests = () => {
                       size="small"
                       onClick={() => openRejectDialog(req.id)}
                       disabled={processing === req.id}
-                      sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
+                      sx={{
+                        bgcolor: T.roseSoft,
+                        color: T.rose,
+                        width: 30,
+                        height: 30,
+                      }}
                     >
                       <Close sx={{ fontSize: 15 }} />
                     </IconButton>
@@ -547,7 +643,7 @@ const WithdrawalRequests = () => {
             p: 4,
             borderRadius: T.radius,
             border: `1px dashed ${T.border}`,
-            textAlign: 'center',
+            textAlign: "center",
           }}
         >
           <Inbox sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
@@ -559,10 +655,8 @@ const WithdrawalRequests = () => {
     </Stack>
   );
 
-  const isMobile = window.innerWidth < 900;
-
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
         <PanelHeader eyebrow="Wallet" title="Withdrawal Requests" />
       </Box>
@@ -578,7 +672,11 @@ const WithdrawalRequests = () => {
           mb: 2.5,
         }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="center"
+        >
           <TextField
             fullWidth
             size="small"
@@ -595,12 +693,15 @@ const WithdrawalRequests = () => {
               },
             }}
             sx={{
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#c7d2fe' },
-                '&.MuiFocused fieldset': { borderColor: T.indigo, borderWidth: 1.5 },
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#c7d2fe" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.indigo,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -626,7 +727,7 @@ const WithdrawalRequests = () => {
                 color: T.indigo,
                 width: 40,
                 height: 40,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
               }}
             >
               <Refresh sx={{ fontSize: 18 }} />
@@ -637,7 +738,11 @@ const WithdrawalRequests = () => {
 
       {/* Table / Mobile */}
       {isMobile ? (
-        loading ? <Loader /> : renderMobileCards()
+        loading ? (
+          <Loader />
+        ) : (
+          renderMobileCards()
+        )
       ) : (
         <Paper
           elevation={0}
@@ -646,7 +751,7 @@ const WithdrawalRequests = () => {
             borderRadius: T.radius,
             border: `1px solid ${T.border}`,
             bgcolor: T.surface,
-            overflow: 'hidden',
+            overflow: "hidden",
           }}
         >
           {loading ? (
@@ -662,33 +767,35 @@ const WithdrawalRequests = () => {
               autoHeight
               rowHeight={64}
               sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': {
+                border: "none",
+                "& .MuiDataGrid-columnHeaders": {
                   bgcolor: T.surfaceSoft,
                   fontWeight: 700,
                   color: T.textMuted,
-                  fontSize: '0.72rem',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
                   borderBottom: `1px solid ${T.border}`,
-                  minHeight: '48px !important',
+                  minHeight: "48px !important",
                 },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
-                '& .MuiDataGrid-row': {
+                "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+                "& .MuiDataGrid-row": {
                   borderBottom: `1px solid ${T.border}`,
-                  transition: 'background-color 0.15s ease',
+                  transition: "background-color 0.15s ease",
                 },
-                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
+                "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+                "& .MuiDataGrid-cell": {
+                  borderBottom: "none",
+                  display: "flex",
+                  alignItems: "center",
                   py: 0,
                 },
-                '& .MuiDataGrid-cell:focus': { outline: 'none' },
-                '& .MuiDataGrid-columnSeparator': { display: 'none' },
-                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
-                '& .MuiDataGrid-toolbarContainer': {
+                "& .MuiDataGrid-cell:focus": { outline: "none" },
+                "& .MuiDataGrid-columnSeparator": { display: "none" },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: `1px solid ${T.border}`,
+                },
+                "& .MuiDataGrid-toolbarContainer": {
                   p: 1,
                   borderBottom: `1px solid ${T.border}`,
                 },
@@ -709,12 +816,12 @@ const WithdrawalRequests = () => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
             borderBottom: `1px solid ${T.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             gap: 1,
           }}
         >
@@ -726,9 +833,9 @@ const WithdrawalRequests = () => {
                 borderRadius: 1.5,
                 bgcolor: T.indigoSoft,
                 color: T.indigo,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
               <AccountBalance sx={{ fontSize: 18 }} />
@@ -743,7 +850,7 @@ const WithdrawalRequests = () => {
                 bgcolor: STATUS_STYLES[viewModal.status]?.bg || T.surfaceSoft,
                 color: STATUS_STYLES[viewModal.status]?.color || T.textMuted,
                 fontWeight: 700,
-                fontSize: '0.65rem',
+                fontSize: "0.65rem",
                 height: 22,
                 borderRadius: 999,
               }}
@@ -755,7 +862,10 @@ const WithdrawalRequests = () => {
             <Stack spacing={2}>
               {/* User */}
               <Box>
-                <SectionHeader icon={<Person sx={{ fontSize: 16 }} />} title="User" />
+                <SectionHeader
+                  icon={<Person sx={{ fontSize: 16 }} />}
+                  title="User"
+                />
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Avatar
                     sx={{
@@ -765,13 +875,21 @@ const WithdrawalRequests = () => {
                       fontWeight: 700,
                     }}
                   >
-                    {(viewModal.User?.firstName || 'U').charAt(0)}
+                    {(viewModal.User?.firstName || "U").charAt(0)}
                   </Avatar>
                   <Box>
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: T.textPrimary }}>
+                    <Typography
+                      sx={{
+                        fontSize: "0.85rem",
+                        fontWeight: 700,
+                        color: T.textPrimary,
+                      }}
+                    >
                       {viewModal.User?.firstName} {viewModal.User?.lastName}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.72rem', color: T.textMuted }}>
+                    <Typography
+                      sx={{ fontSize: "0.72rem", color: T.textMuted }}
+                    >
                       {viewModal.User?.email}
                     </Typography>
                   </Box>
@@ -782,14 +900,18 @@ const WithdrawalRequests = () => {
 
               {/* Amount */}
               <Box>
-                <SectionHeader icon={<AccountBalance sx={{ fontSize: 16 }} />} title="Amount" accent={T.emerald} />
+                <SectionHeader
+                  icon={<AccountBalance sx={{ fontSize: 16 }} />}
+                  title="Amount"
+                  accent={T.emerald}
+                />
                 <Typography
                   sx={{
-                    fontSize: '1.5rem',
+                    fontSize: "1.5rem",
                     fontWeight: 800,
-                    color: '#047857',
-                    fontFamily: 'monospace',
-                    letterSpacing: '-0.02em',
+                    color: "#047857",
+                    fontFamily: "monospace",
+                    letterSpacing: "-0.02em",
                   }}
                 >
                   ₹{parseFloat(viewModal.amount || 0).toFixed(2)}
@@ -800,16 +922,26 @@ const WithdrawalRequests = () => {
 
               {/* Bank Details */}
               <Box>
-                <SectionHeader icon={<AccountBalance sx={{ fontSize: 16 }} />} title="Bank Details" accent={T.sky} />
+                <SectionHeader
+                  icon={<AccountBalance sx={{ fontSize: 16 }} />}
+                  title="Bank Details"
+                  accent={T.sky}
+                />
                 <Box
                   sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
                     gap: 1.5,
                   }}
                 >
-                  <InfoRow label="Account Name" value={viewModal.accountName} />
-                  <InfoRow label="Account Number" value={viewModal.accountNumber} />
+                  <InfoRow
+                    label="Account Name"
+                    value={viewModal.accountName}
+                  />
+                  <InfoRow
+                    label="Account Number"
+                    value={viewModal.accountNumber}
+                  />
                   <InfoRow label="Bank Name" value={viewModal.bankName} />
                   <InfoRow label="IFSC Code" value={viewModal.ifscCode} />
                   {viewModal.upiId && (
@@ -820,8 +952,10 @@ const WithdrawalRequests = () => {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, gap: 1, borderTop: `1px solid ${T.border}` }}>
-          {viewModal?.status === 'PENDING' && (
+        <DialogActions
+          sx={{ p: 2, gap: 1, borderTop: `1px solid ${T.border}` }}
+        >
+          {viewModal?.status === "PENDING" && (
             <>
               <Button
                 onClick={() => handleApprove(viewModal.id)}
@@ -829,18 +963,18 @@ const WithdrawalRequests = () => {
                 variant="contained"
                 startIcon={
                   processing === viewModal.id ? (
-                    <CircularProgress size={14} sx={{ color: '#fff' }} />
+                    <CircularProgress size={14} sx={{ color: "#fff" }} />
                   ) : (
                     <Check sx={{ fontSize: 16 }} />
                   )
                 }
                 sx={{
-                  textTransform: 'none',
+                  textTransform: "none",
                   fontWeight: 700,
                   borderRadius: 2,
                   bgcolor: T.emerald,
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#059669' },
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#059669" },
                 }}
               >
                 Approve
@@ -851,12 +985,12 @@ const WithdrawalRequests = () => {
                 variant="contained"
                 startIcon={<Close sx={{ fontSize: 16 }} />}
                 sx={{
-                  textTransform: 'none',
+                  textTransform: "none",
                   fontWeight: 700,
                   borderRadius: 2,
                   bgcolor: T.rose,
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#e11d48' },
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#e11d48" },
                 }}
               >
                 Reject
@@ -865,7 +999,7 @@ const WithdrawalRequests = () => {
           )}
           <Button
             onClick={() => setViewModal(null)}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{ textTransform: "none", fontWeight: 600, color: T.textMuted }}
           >
             Close
           </Button>
@@ -875,7 +1009,9 @@ const WithdrawalRequests = () => {
       {/* ═══════ Reject Reason Dialog ═══════ */}
       <Dialog
         open={rejectDialog.open}
-        onClose={() => !processing && setRejectDialog({ open: false, id: null })}
+        onClose={() =>
+          !processing && setRejectDialog({ open: false, id: null })
+        }
         maxWidth="sm"
         fullWidth
         slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
@@ -883,10 +1019,10 @@ const WithdrawalRequests = () => {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -897,9 +1033,9 @@ const WithdrawalRequests = () => {
               borderRadius: 1.5,
               bgcolor: T.roseSoft,
               color: T.rose,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Close sx={{ fontSize: 18 }} />
@@ -908,8 +1044,11 @@ const WithdrawalRequests = () => {
         </DialogTitle>
         <Divider sx={{ borderColor: T.border }} />
         <Box sx={{ px: 3, py: 2.5 }}>
-          <Typography sx={{ fontSize: '0.82rem', color: T.textMuted, mb: 2 }}>
-            Please provide a reason for rejection. This will be shared with the user.
+          <Typography
+            sx={{ fontSize: "0.82rem", color: T.textMuted, mb: 2 }}
+          >
+            Please provide a reason for rejection. This will be shared with the
+            user.
           </Typography>
           <TextField
             fullWidth
@@ -919,12 +1058,15 @@ const WithdrawalRequests = () => {
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             sx={{
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#fecaca' },
-                '&.Mui-focused fieldset': { borderColor: T.rose, borderWidth: 1.5 },
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#fecaca" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.rose,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -933,7 +1075,11 @@ const WithdrawalRequests = () => {
           <Button
             onClick={() => setRejectDialog({ open: false, id: null })}
             disabled={!!processing}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: T.textMuted,
+            }}
           >
             Cancel
           </Button>
@@ -942,18 +1088,18 @@ const WithdrawalRequests = () => {
             disabled={!!processing}
             variant="contained"
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
               borderRadius: 2,
               bgcolor: T.rose,
-              '&:hover': { bgcolor: '#e11d48' },
-              boxShadow: 'none',
+              "&:hover": { bgcolor: "#e11d48" },
+              boxShadow: "none",
             }}
           >
             {processing ? (
-              <CircularProgress size={16} sx={{ color: '#fff' }} />
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
             ) : (
-              'Reject'
+              "Reject"
             )}
           </Button>
         </DialogActions>

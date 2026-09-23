@@ -1,64 +1,105 @@
 // src/pages/Photographers.jsx
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
-  Box, Paper, Typography, TextField, Button, IconButton, Chip, Avatar,
-  Stack, Tooltip, InputAdornment, Dialog, DialogTitle, DialogContent,
-  DialogActions, useMediaQuery, useTheme, FormControl, Select, MenuItem,
-  InputLabel, CircularProgress, Divider,
-} from '@mui/material';
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  IconButton,
+  Chip,
+  Avatar,
+  Stack,
+  Tooltip,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  useMediaQuery,
+  useTheme,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+  CircularProgress,
+  Divider,
+} from "@mui/material";
 import {
-  Search, Delete, Visibility, Block, PhotoLibrary,
-  Refresh, PersonAdd,
-} from '@mui/icons-material';
-import { DataGrid, GridToolbarContainer, GridToolbarFilterButton, GridToolbarExport } from '@mui/x-data-grid';
-import { fetchPhotographers, updatePhotographerStatus, deletePhotographer, setPage, setLimit } from '../redux/slices/photographerSlice';
-import Loader from '../components/Loader';
-import PanelHeader from '../components/PanelHeader';
-import ExportButtons from '../components/ExportButtons';
-import GalleryManager from '../components/GalleryManager';
-import { removePhotographerGalleryImage } from '../api/admin';
-import apiClient from '../api/axios';
-import { getImageUrl } from '../utils/imageFallback';
+  Search,
+  Delete,
+  Visibility,
+  Block,
+  PhotoLibrary,
+  Refresh,
+  PersonAdd,
+} from "@mui/icons-material";
+import {
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarFilterButton,
+  GridToolbarExport,
+} from "@mui/x-data-grid";
+
+import {
+  fetchPhotographers,
+  updatePhotographerStatus,
+  deletePhotographer,
+  setPage,
+  setLimit,
+} from "../redux/slices/photographerSlice";
+
+import Loader from "../components/Loader";
+import PanelHeader from "../components/PanelHeader";
+import ExportButtons from "../components/ExportButtons";
+import GalleryManager from "../components/GalleryManager";
+import { removePhotographerGalleryImage } from "../api/admin";
+import apiClient from "../api/axios";
+import { getImageUrl } from "../utils/imageFallback";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS
 // ═══════════════════════════════════════════════════════════════
 const T = {
-  border: '#eef1f6',
-  borderStrong: '#e2e8f0',
-  surface: '#ffffff',
-  surfaceSoft: '#fafbfc',
-  bgRowHover: '#fafbfc',
-  textPrimary: '#0b1220',
-  textMuted: '#64748b',
-  textFaint: '#94a3b8',
-  indigo: '#6366f1',
-  indigoSoft: '#eef2ff',
-  violet: '#8b5cf6',
-  violetSoft: '#ede9fe',
-  emerald: '#10b981',
-  emeraldSoft: '#d1fae5',
-  rose: '#f43f5e',
-  roseSoft: '#ffe4e6',
-  amber: '#f59e0b',
-  amberSoft: '#fef3c7',
-  sky: '#0ea5e9',
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  bgRowHover: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  indigoSoft: "#eef2ff",
+  violet: "#8b5cf6",
+  violetSoft: "#ede9fe",
+  emerald: "#10b981",
+  emeraldSoft: "#d1fae5",
+  rose: "#f43f5e",
+  roseSoft: "#ffe4e6",
+  amber: "#f59e0b",
+  amberSoft: "#fef3c7",
+  sky: "#0ea5e9",
   radius: 3,
 };
 
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
 const getFullName = (p) => {
   if (p.fullName) return p.fullName;
   if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`;
-  if (p.user?.firstName && p.user?.lastName) return `${p.user.firstName} ${p.user.lastName}`;
+  if (p.user?.firstName && p.user?.lastName)
+    return `${p.user.firstName} ${p.user.lastName}`;
   if (p.name) return p.name;
-  return '—';
+  return "—";
 };
 
-const getEmail = (p) => p.user?.email || p.email || '—';
-const getPhone = (p) => p.user?.phone || p.phone || '—';
+const getEmail = (p) => p.user?.email || p.email || p.User?.email || "—";
+const getPhone = (p) => p.user?.phone || p.phone || p.User?.phone || "—";
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -71,50 +112,56 @@ const Photographers = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { items, loading, pagination } = useSelector((s) => s.photographers);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [blockConfirm, setBlockConfirm] = useState(null);
-  const [galleryDialog, setGalleryDialog] = useState({ open: false, photographer: null });
+  const [galleryDialog, setGalleryDialog] = useState({
+    open: false,
+    photographer: null,
+  });
   const [processing, setProcessing] = useState(false);
 
   const exportHeaders = [
-    { key: 'profileImage', label: 'Photo', isImage: true },
-    { key: 'fullName', label: 'Name' },
-    { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'experience', label: 'Experience' },
-    { key: 'cameraDetails', label: 'Camera' },
-    { key: 'companyName', label: 'Company' },
-    { key: 'location', label: 'Location' },
-    { key: 'isActive', label: 'Status' },
+    { key: "profilePhotoUrl", label: "Photo", isImage: true },
+    { key: "fullName", label: "Name" },
+    { key: "email", label: "Email" },
+    { key: "phone", label: "Phone" },
+    { key: "experience", label: "Experience" },
+    { key: "cameraDetails", label: "Camera" },
+    { key: "companyName", label: "Company" },
+    { key: "location", label: "Location" },
+    { key: "isActive", label: "Status" },
   ];
 
   const fetchList = () => {
-    dispatch(fetchPhotographers({
-      page: pagination.page,
-      limit: pagination.limit,
-      search: searchTerm || undefined,
-      status: statusFilter !== 'ALL' ? statusFilter : undefined,
-    }));
+    dispatch(
+      fetchPhotographers({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm || undefined,
+        status: statusFilter !== "ALL" ? statusFilter : undefined,
+      })
+    );
   };
 
   useEffect(() => {
     fetchList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, pagination.page, pagination.limit, searchTerm, statusFilter]);
 
   const handleDelete = async (id) => {
     try {
       setProcessing(true);
       await dispatch(deletePhotographer(id)).unwrap();
-      toast.success('Photographer deleted successfully');
+      toast.success("Photographer deleted successfully");
       setDeleteConfirm(null);
       fetchList();
     } catch {
-      toast.error('Delete failed');
+      toast.error("Delete failed");
     } finally {
       setProcessing(false);
     }
@@ -122,27 +169,42 @@ const Photographers = () => {
 
   const handleToggleStatus = async (id, currentStatus) => {
     try {
-      await dispatch(updatePhotographerStatus({ id, status: !currentStatus })).unwrap();
-      toast.success('Status updated');
+      await dispatch(
+        updatePhotographerStatus({ id, status: !currentStatus })
+      ).unwrap();
+      toast.success("Status updated");
       fetchList();
     } catch (error) {
-      toast.error(error.message || 'Status update failed');
+      toast.error(error.message || "Status update failed");
     }
   };
 
-  const handleBlock = async (photographerId) => {
+  // ═══════════════════════════════════════════════════════════════
+  // ✅ FIX: Block photographer — userId MUST exist, no fallback
+  // ═══════════════════════════════════════════════════════════════
+  const handleBlock = async (photographerProfileId) => {
+    const photographer = items.find((p) => p.id === photographerProfileId);
+    const blockedUserId = photographer?.userId || photographer?.user?.id;
+
+    if (!blockedUserId) {
+      toast.error("Cannot block: User ID not found for this photographer");
+      setBlockConfirm(null);
+      return;
+    }
+
     try {
       setProcessing(true);
-      const photographer = items.find((p) => p.id === photographerId);
-      await apiClient.post('/blocks', {
-        blockedUserId: photographer?.userId || photographerId,
-        reason: 'Admin block',
+      await apiClient.post("/blocks", {
+        blockedUserId,
+        reason: "Admin block",
       });
-      toast.success('Photographer blocked successfully');
+      toast.success("Photographer blocked successfully");
       setBlockConfirm(null);
       fetchList();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to block photographer');
+      toast.error(
+        error.response?.data?.message || "Failed to block photographer"
+      );
     } finally {
       setProcessing(false);
     }
@@ -150,8 +212,8 @@ const Photographers = () => {
 
   const columns = [
     {
-      field: 'profileImage',
-      headerName: 'Profile',
+      field: "profilePhotoUrl",
+      headerName: "Profile",
       flex: 0.5,
       minWidth: 80,
       renderCell: (params) => {
@@ -159,33 +221,33 @@ const Photographers = () => {
         return (
           <Avatar
             src={getImageUrl(
-              params.row.profileImage || params.row.user?.profileImage,
+              params.row.profilePhotoUrl || params.row.user?.profileImage,
               name
             )}
             alt={name}
             sx={{
               width: 38,
               height: 38,
-              background: 'linear-gradient(135deg, #ec4899, #f472b6)',
+              background: "linear-gradient(135deg, #ec4899, #f472b6)",
               fontWeight: 700,
-              fontSize: '0.85rem',
-              border: '2px solid #fff',
-              boxShadow: '0 2px 6px rgba(15,23,42,0.1)',
+              fontSize: "0.85rem",
+              border: "2px solid #fff",
+              boxShadow: "0 2px 6px rgba(15,23,42,0.1)",
             }}
           >
-            {(name[0] || 'P').toUpperCase()}
+            {(name[0] || "P").toUpperCase()}
           </Avatar>
         );
       },
     },
     {
-      field: 'fullName',
-      headerName: 'Name',
+      field: "fullName",
+      headerName: "Name",
       flex: 1.2,
       minWidth: 140,
       renderCell: (params) => (
         <Typography
-          sx={{ fontSize: '0.82rem', fontWeight: 700, color: T.textPrimary }}
+          sx={{ fontSize: "0.82rem", fontWeight: 700, color: T.textPrimary }}
           noWrap
         >
           {getFullName(params.row)}
@@ -193,74 +255,76 @@ const Photographers = () => {
       ),
     },
     {
-      field: 'email',
-      headerName: 'Email',
+      field: "email",
+      headerName: "Email",
       flex: 1.5,
       minWidth: 180,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
           {getEmail(params.row)}
         </Typography>
       ),
     },
     {
-      field: 'phone',
-      headerName: 'Phone',
+      field: "phone",
+      headerName: "Phone",
       flex: 1,
       minWidth: 120,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
           {getPhone(params.row)}
         </Typography>
       ),
     },
     {
-      field: 'experience',
-      headerName: 'Exp.',
+      field: "experience",
+      headerName: "Exp.",
       flex: 0.6,
       minWidth: 80,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }}>
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }}>
           {params.row.experience || 0} yrs
         </Typography>
       ),
     },
     {
-      field: 'cameraDetails',
-      headerName: 'Camera',
+      field: "cameraDetails",
+      headerName: "Camera",
       flex: 1,
       minWidth: 120,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.78rem', color: T.textMuted }} noWrap>
-          {params.row.cameraDetails || 'N/A'}
+        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
+          {params.row.cameraDetails || "N/A"}
         </Typography>
       ),
     },
     {
-      field: 'isActive',
-      headerName: 'Status',
+      field: "isActive",
+      headerName: "Status",
       flex: 0.7,
       minWidth: 100,
       renderCell: (params) => (
         <Chip
-          label={params.row.isActive ? 'Active' : 'Inactive'}
+          label={params.row.isActive ? "Active" : "Inactive"}
           size="small"
-          onClick={() => handleToggleStatus(params.row.id, params.row.isActive)}
+          onClick={() =>
+            handleToggleStatus(params.row.id, params.row.isActive)
+          }
           sx={{
-            bgcolor: params.row.isActive ? T.emeraldSoft : '#f1f5f9',
-            color: params.row.isActive ? '#059669' : '#64748b',
+            bgcolor: params.row.isActive ? T.emeraldSoft : "#f1f5f9",
+            color: params.row.isActive ? "#059669" : "#64748b",
             fontWeight: 700,
-            fontSize: '0.65rem',
+            fontSize: "0.65rem",
             height: 22,
             borderRadius: 999,
-            cursor: 'pointer',
+            cursor: "pointer",
           }}
         />
       ),
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
+      field: "actions",
+      headerName: "Actions",
       flex: 1,
       minWidth: 160,
       sortable: false,
@@ -273,7 +337,7 @@ const Photographers = () => {
               sx={{
                 bgcolor: T.indigoSoft,
                 color: T.indigo,
-                '&:hover': { bgcolor: '#e0e7ff' },
+                "&:hover": { bgcolor: "#e0e7ff" },
                 width: 32,
                 height: 32,
               }}
@@ -284,11 +348,13 @@ const Photographers = () => {
           <Tooltip title="Gallery">
             <IconButton
               size="small"
-              onClick={() => setGalleryDialog({ open: true, photographer: params.row })}
+              onClick={() =>
+                setGalleryDialog({ open: true, photographer: params.row })
+              }
               sx={{
                 bgcolor: T.violetSoft,
                 color: T.violet,
-                '&:hover': { bgcolor: '#ddd6fe' },
+                "&:hover": { bgcolor: "#ddd6fe" },
                 width: 32,
                 height: 32,
               }}
@@ -302,8 +368,8 @@ const Photographers = () => {
               onClick={() => setBlockConfirm(params.row.id)}
               sx={{
                 bgcolor: T.amberSoft,
-                color: '#b45309',
-                '&:hover': { bgcolor: '#fde68a' },
+                color: "#b45309",
+                "&:hover": { bgcolor: "#fde68a" },
                 width: 32,
                 height: 32,
               }}
@@ -318,7 +384,7 @@ const Photographers = () => {
               sx={{
                 bgcolor: T.roseSoft,
                 color: T.rose,
-                '&:hover': { bgcolor: '#fecaca' },
+                "&:hover": { bgcolor: "#fecaca" },
                 width: 32,
                 height: 32,
               }}
@@ -345,84 +411,147 @@ const Photographers = () => {
                 border: `1px solid ${T.border}`,
                 bgcolor: T.surface,
                 p: 2,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  boxShadow: '0 12px 24px -16px rgba(15,23,42,0.15)',
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  boxShadow: "0 12px 24px -16px rgba(15,23,42,0.15)",
                   borderColor: T.borderStrong,
                 },
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                sx={{ mb: 1.5 }}
+              >
                 <Avatar
                   src={getImageUrl(
-                    photographer.profileImage || photographer.user?.profileImage,
+                    photographer.profilePhotoUrl ||
+                      photographer.user?.profileImage,
                     name
                   )}
                   alt={name}
                   sx={{
                     width: 44,
                     height: 44,
-                    background: 'linear-gradient(135deg, #ec4899, #f472b6)',
+                    background: "linear-gradient(135deg, #ec4899, #f472b6)",
                     fontWeight: 700,
-                    fontSize: '0.9rem',
-                    border: '2px solid #fff',
+                    fontSize: "0.9rem",
+                    border: "2px solid #fff",
                   }}
                 >
-                  {(name[0] || 'P').toUpperCase()}
+                  {(name[0] || "P").toUpperCase()}
                 </Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
-                    sx={{ fontSize: '0.88rem', fontWeight: 700, color: T.textPrimary }}
+                    sx={{
+                      fontSize: "0.88rem",
+                      fontWeight: 700,
+                      color: T.textPrimary,
+                    }}
                     noWrap
                   >
                     {name}
                   </Typography>
                   <Typography
-                    sx={{ fontSize: '0.72rem', color: T.textMuted, mt: 0.2 }}
+                    sx={{ fontSize: "0.72rem", color: T.textMuted, mt: 0.2 }}
                     noWrap
                   >
                     {getEmail(photographer)}
                   </Typography>
                 </Box>
                 <Chip
-                  label={photographer.isActive ? 'Active' : 'Inactive'}
+                  label={photographer.isActive ? "Active" : "Inactive"}
                   size="small"
-                  onClick={() => handleToggleStatus(photographer.id, photographer.isActive)}
+                  onClick={() =>
+                    handleToggleStatus(
+                      photographer.id,
+                      photographer.isActive
+                    )
+                  }
                   sx={{
-                    bgcolor: photographer.isActive ? T.emeraldSoft : '#f1f5f9',
-                    color: photographer.isActive ? '#059669' : '#64748b',
+                    bgcolor: photographer.isActive
+                      ? T.emeraldSoft
+                      : "#f1f5f9",
+                    color: photographer.isActive ? "#059669" : "#64748b",
                     fontWeight: 700,
-                    fontSize: '0.62rem',
+                    fontSize: "0.62rem",
                     height: 22,
                     borderRadius: 999,
-                    cursor: 'pointer',
+                    cursor: "pointer",
                   }}
                 />
               </Stack>
 
               <Stack direction="row" spacing={2.5} sx={{ mb: 1.5 }}>
                 <Box>
-                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     Phone
                   </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      color: T.textPrimary,
+                      fontWeight: 600,
+                      mt: 0.2,
+                    }}
+                  >
                     {getPhone(photographer)}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     Exp.
                   </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      color: T.textPrimary,
+                      fontWeight: 600,
+                      mt: 0.2,
+                    }}
+                  >
                     {photographer.experience || 0} yrs
                   </Typography>
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '0.6rem', color: T.textFaint, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      color: T.textFaint,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     Camera
                   </Typography>
-                  <Typography sx={{ fontSize: '0.78rem', color: T.textPrimary, fontWeight: 600, mt: 0.2 }} noWrap>
-                    {photographer.cameraDetails || 'N/A'}
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      color: T.textPrimary,
+                      fontWeight: 600,
+                      mt: 0.2,
+                    }}
+                    noWrap
+                  >
+                    {photographer.cameraDetails || "N/A"}
                   </Typography>
                 </Box>
               </Stack>
@@ -436,28 +565,50 @@ const Photographers = () => {
                 <IconButton
                   size="small"
                   onClick={() => navigate(`/photographers/${photographer.id}`)}
-                  sx={{ bgcolor: T.indigoSoft, color: T.indigo, width: 30, height: 30 }}
+                  sx={{
+                    bgcolor: T.indigoSoft,
+                    color: T.indigo,
+                    width: 30,
+                    height: 30,
+                  }}
                 >
                   <Visibility sx={{ fontSize: 15 }} />
                 </IconButton>
                 <IconButton
                   size="small"
-                  onClick={() => setGalleryDialog({ open: true, photographer })}
-                  sx={{ bgcolor: T.violetSoft, color: T.violet, width: 30, height: 30 }}
+                  onClick={() =>
+                    setGalleryDialog({ open: true, photographer })
+                  }
+                  sx={{
+                    bgcolor: T.violetSoft,
+                    color: T.violet,
+                    width: 30,
+                    height: 30,
+                  }}
                 >
                   <PhotoLibrary sx={{ fontSize: 15 }} />
                 </IconButton>
                 <IconButton
                   size="small"
                   onClick={() => setBlockConfirm(photographer.id)}
-                  sx={{ bgcolor: T.amberSoft, color: '#b45309', width: 30, height: 30 }}
+                  sx={{
+                    bgcolor: T.amberSoft,
+                    color: "#b45309",
+                    width: 30,
+                    height: 30,
+                  }}
                 >
                   <Block sx={{ fontSize: 15 }} />
                 </IconButton>
                 <IconButton
                   size="small"
                   onClick={() => setDeleteConfirm(photographer.id)}
-                  sx={{ bgcolor: T.roseSoft, color: T.rose, width: 30, height: 30 }}
+                  sx={{
+                    bgcolor: T.roseSoft,
+                    color: T.rose,
+                    width: 30,
+                    height: 30,
+                  }}
                 >
                   <Delete sx={{ fontSize: 15 }} />
                 </IconButton>
@@ -472,7 +623,7 @@ const Photographers = () => {
             p: 4,
             borderRadius: T.radius,
             border: `1px dashed ${T.border}`,
-            textAlign: 'center',
+            textAlign: "center",
           }}
         >
           <PersonAdd sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
@@ -485,9 +636,12 @@ const Photographers = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
-        <PanelHeader eyebrow="Photographers Management" title="All Photographers" />
+        <PanelHeader
+          eyebrow="Photographers Management"
+          title="All Photographers"
+        />
       </Box>
 
       <Paper
@@ -500,7 +654,11 @@ const Photographers = () => {
           mb: 2.5,
         }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="center"
+        >
           <TextField
             fullWidth
             placeholder="Search photographers..."
@@ -517,12 +675,15 @@ const Photographers = () => {
               },
             }}
             sx={{
-              '& .MuiOutlinedInput-root': {
+              "& .MuiOutlinedInput-root": {
                 borderRadius: 2,
                 bgcolor: T.surfaceSoft,
-                '& fieldset': { borderColor: T.border },
-                '&:hover fieldset': { borderColor: '#fbcfe8' },
-                '&.Mui-focused fieldset': { borderColor: T.rose, borderWidth: 1.5 },
+                "& fieldset": { borderColor: T.border },
+                "&:hover fieldset": { borderColor: "#fbcfe8" },
+                "&.Mui-focused fieldset": {
+                  borderColor: T.rose,
+                  borderWidth: 1.5,
+                },
               },
             }}
           />
@@ -549,19 +710,47 @@ const Photographers = () => {
                 color: T.rose,
                 width: 40,
                 height: 40,
-                '&:hover': { bgcolor: '#fecdd3' },
+                "&:hover": { bgcolor: "#fecdd3" },
               }}
             >
               <Refresh sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
 
-          <ExportButtons data={items} headers={exportHeaders} filename="photographers" />
+          <ExportButtons
+            data={items}
+            headers={exportHeaders}
+            filename="photographers"
+          />
+
+          <Button
+            variant="contained"
+            startIcon={<PersonAdd sx={{ fontSize: 16 }} />}
+            onClick={() => navigate("/photographers/create")}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              fontSize: "0.78rem",
+              borderRadius: 2,
+              bgcolor: T.rose,
+              px: 2.5,
+              py: 1,
+              boxShadow: "none",
+              whiteSpace: "nowrap",
+              "&:hover": { bgcolor: "#e11d48" },
+            }}
+          >
+            Add Photographer
+          </Button>
         </Stack>
       </Paper>
 
       {isMobile ? (
-        loading ? <Loader /> : renderMobileCards()
+        loading ? (
+          <Loader />
+        ) : (
+          renderMobileCards()
+        )
       ) : (
         <Paper
           elevation={0}
@@ -570,7 +759,7 @@ const Photographers = () => {
             borderRadius: T.radius,
             border: `1px solid ${T.border}`,
             bgcolor: T.surface,
-            overflow: 'hidden',
+            overflow: "hidden",
           }}
         >
           {loading ? (
@@ -589,33 +778,35 @@ const Photographers = () => {
               autoHeight
               rowHeight={64}
               sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': {
+                border: "none",
+                "& .MuiDataGrid-columnHeaders": {
                   bgcolor: T.surfaceSoft,
                   fontWeight: 700,
                   color: T.textMuted,
-                  fontSize: '0.72rem',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
                   borderBottom: `1px solid ${T.border}`,
-                  minHeight: '48px !important',
+                  minHeight: "48px !important",
                 },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 },
-                '& .MuiDataGrid-row': {
+                "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+                "& .MuiDataGrid-row": {
                   borderBottom: `1px solid ${T.border}`,
-                  transition: 'background-color 0.15s ease',
+                  transition: "background-color 0.15s ease",
                 },
-                '& .MuiDataGrid-row:hover': { bgcolor: T.bgRowHover },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
+                "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+                "& .MuiDataGrid-cell": {
+                  borderBottom: "none",
+                  display: "flex",
+                  alignItems: "center",
                   py: 0,
                 },
-                '& .MuiDataGrid-cell:focus': { outline: 'none' },
-                '& .MuiDataGrid-columnSeparator': { display: 'none' },
-                '& .MuiDataGrid-footerContainer': { borderTop: `1px solid ${T.border}` },
-                '& .MuiDataGrid-toolbarContainer': {
+                "& .MuiDataGrid-cell:focus": { outline: "none" },
+                "& .MuiDataGrid-columnSeparator": { display: "none" },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: `1px solid ${T.border}`,
+                },
+                "& .MuiDataGrid-toolbarContainer": {
                   p: 1,
                   borderBottom: `1px solid ${T.border}`,
                 },
@@ -625,22 +816,22 @@ const Photographers = () => {
         </Paper>
       )}
 
-      {/* ═══════ Gallery Dialog ═══════ */}
+      {/* Gallery Dialog */}
       <Dialog
         open={galleryDialog.open}
         onClose={() => setGalleryDialog({ open: false, photographer: null })}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { borderRadius: T.radius } }}
+        slotProps={{ paper: { sx: { borderRadius: T.radius } } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
-            fontSize: '1.05rem',
+            fontSize: "1.05rem",
             color: T.textPrimary,
             borderBottom: `1px solid ${T.border}`,
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -667,27 +858,29 @@ const Photographers = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button
-            onClick={() => setGalleryDialog({ open: false, photographer: null })}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            onClick={() =>
+              setGalleryDialog({ open: false, photographer: null })
+            }
+            sx={{ textTransform: "none", fontWeight: 600, color: T.textMuted }}
           >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ═══════ Delete Dialog ═══════ */}
+      {/* Delete Dialog */}
       <Dialog
         open={!!deleteConfirm}
         onClose={() => !processing && setDeleteConfirm(null)}
-        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
+        slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
             color: T.textPrimary,
-            fontSize: '1.05rem',
-            display: 'flex',
-            alignItems: 'center',
+            fontSize: "1.05rem",
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -698,9 +891,9 @@ const Photographers = () => {
               borderRadius: 1.5,
               bgcolor: T.roseSoft,
               color: T.rose,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Delete sx={{ fontSize: 18 }} />
@@ -709,16 +902,16 @@ const Photographers = () => {
         </DialogTitle>
         <Divider />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
-            This will permanently delete the photographer and all associated data.
-            This action cannot be undone.
+          <Typography sx={{ fontSize: "0.85rem", color: T.textMuted }}>
+            This will permanently delete the photographer and all associated
+            data. This action cannot be undone.
           </Typography>
         </Box>
         <DialogActions sx={{ p: 2, pt: 0, gap: 1 }}>
           <Button
             onClick={() => setDeleteConfirm(null)}
             disabled={processing}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{ textTransform: "none", fontWeight: 600, color: T.textMuted }}
           >
             Cancel
           </Button>
@@ -727,32 +920,36 @@ const Photographers = () => {
             disabled={processing}
             variant="contained"
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
               borderRadius: 2,
               bgcolor: T.rose,
-              '&:hover': { bgcolor: '#e11d48' },
-              boxShadow: 'none',
+              "&:hover": { bgcolor: "#e11d48" },
+              boxShadow: "none",
             }}
           >
-            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Delete'}
+            {processing ? (
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
+            ) : (
+              "Delete"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ═══════ Block Dialog ═══════ */}
+      {/* Block Dialog */}
       <Dialog
         open={!!blockConfirm}
         onClose={() => !processing && setBlockConfirm(null)}
-        PaperProps={{ sx: { borderRadius: T.radius, p: 0.5 } }}
+        slotProps={{ paper: { sx: { borderRadius: T.radius, p: 0.5 } } }}
       >
         <DialogTitle
           sx={{
             fontWeight: 700,
             color: T.textPrimary,
-            fontSize: '1.05rem',
-            display: 'flex',
-            alignItems: 'center',
+            fontSize: "1.05rem",
+            display: "flex",
+            alignItems: "center",
             gap: 1,
           }}
         >
@@ -762,10 +959,10 @@ const Photographers = () => {
               height: 32,
               borderRadius: 1.5,
               bgcolor: T.amberSoft,
-              color: '#b45309',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              color: "#b45309",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Block sx={{ fontSize: 18 }} />
@@ -774,7 +971,7 @@ const Photographers = () => {
         </DialogTitle>
         <Divider />
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: '0.85rem', color: T.textMuted }}>
+          <Typography sx={{ fontSize: "0.85rem", color: T.textMuted }}>
             The photographer won't be able to log in or access the platform.
           </Typography>
         </Box>
@@ -782,7 +979,7 @@ const Photographers = () => {
           <Button
             onClick={() => setBlockConfirm(null)}
             disabled={processing}
-            sx={{ textTransform: 'none', fontWeight: 600, color: T.textMuted }}
+            sx={{ textTransform: "none", fontWeight: 600, color: T.textMuted }}
           >
             Cancel
           </Button>
@@ -791,15 +988,19 @@ const Photographers = () => {
             disabled={processing}
             variant="contained"
             sx={{
-              textTransform: 'none',
+              textTransform: "none",
               fontWeight: 700,
               borderRadius: 2,
               bgcolor: T.amber,
-              '&:hover': { bgcolor: '#d97706' },
-              boxShadow: 'none',
+              "&:hover": { bgcolor: "#d97706" },
+              boxShadow: "none",
             }}
           >
-            {processing ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Block'}
+            {processing ? (
+              <CircularProgress size={16} sx={{ color: "#fff" }} />
+            ) : (
+              "Block"
+            )}
           </Button>
         </DialogActions>
       </Dialog>

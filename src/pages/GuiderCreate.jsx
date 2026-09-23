@@ -1,174 +1,420 @@
-import { useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { toast } from 'react-toastify';
-import { FaArrowLeft, FaSave, FaUser } from 'react-icons/fa';
-import { createGuider } from '../redux/slices/guiderSlice';
+// src/pages/GuiderCreate.jsx
+// ═══════════════════════════════════════════════════════════════
+// CREATE GUIDER — with ImageInput for profile photo
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { useForm, Controller } from "react-hook-form";
+import { toast } from "react-toastify";
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Stack,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  CircularProgress,
+  InputAdornment,
+} from "@mui/material";
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  Person as PersonIcon,
+} from "@mui/icons-material";
+import { createGuider } from "../redux/slices/guiderSlice";
+import { fetchUsers } from "../redux/slices/userSlice";
+import { fetchPlaces } from "../redux/slices/placeSlice";
+import { ImageInput, PanelHeader } from "../components";
+
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════
+const T = {
+  border: "#eef1f6",
+  borderStrong: "#e2e8f0",
+  surface: "#ffffff",
+  surfaceSoft: "#fafbfc",
+  textPrimary: "#0b1220",
+  textMuted: "#64748b",
+  textFaint: "#94a3b8",
+  indigo: "#6366f1",
+  rose: "#f43f5e",
+  radius: 3,
+  fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
+};
+
+const fieldSx = {
+  "& .MuiOutlinedInput-root": {
+    borderRadius: 2,
+    bgcolor: T.surfaceSoft,
+    "& fieldset": { borderColor: T.border },
+    "&:hover fieldset": { borderColor: "#c7d2fe" },
+    "&.Mui-focused fieldset": { borderColor: T.indigo, borderWidth: 1.5 },
+  },
+  "& .MuiInputLabel-root.Mui-focused": { color: T.indigo },
+};
 
 const GuiderCreate = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  const { items: users = [], loading: usersLoading } = useSelector(
+    (s) => s.users
+  );
+  const { items: places = [], loading: placesLoading } = useSelector(
+    (s) => s.places
+  );
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      userId: "",
+      placeIds: [],
+      experience: 0,
+      languages: "",
+      bio: "",
+      fullName: "",
+      companyName: "",
+      location: "",
+      profilePhotoUrl: "",
+    },
+  });
+
+  const profilePhotoUrl = watch("profilePhotoUrl");
+
+  useEffect(() => {
+    dispatch(fetchUsers({ role: "USER", limit: 200 }));
+    dispatch(fetchPlaces({ limit: 200 }));
+  }, [dispatch]);
 
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      data.pricePerHour = parseFloat(data.pricePerHour) || 0;
-      data.pricePerDay = parseFloat(data.pricePerDay) || 0;
-      const result = await dispatch(createGuider(data));
+      const payload = {
+        userId: data.userId,
+        fullName: data.fullName,
+        companyName: data.companyName || null,
+        location: data.location || null,
+        experience: parseInt(data.experience) || 0,
+        languages: data.languages
+          ? data.languages.split(",").map((l) => l.trim()).filter(Boolean)
+          : [],
+        bio: data.bio || "",
+        placeIds: Array.isArray(data.placeIds) ? data.placeIds : [],
+        profilePhotoUrl: data.profilePhotoUrl || null,
+        isActive: true,
+      };
+
+      const result = await dispatch(createGuider(payload));
       if (createGuider.fulfilled.match(result)) {
-        toast.success('Guider created successfully!');
-        navigate('/guiders');
+        toast.success("Guider created successfully!");
+        navigate("/guiders");
       } else {
-        toast.error(result.payload || 'Failed to create guider');
+        toast.error(result.payload || "Failed to create guider");
       }
     } catch (error) {
-      toast.error('Something went wrong');
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate('/guiders')}
-          className="p-2 rounded-full hover:bg-gray-100 transition"
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: "auto" }}>
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          onClick={() => navigate("/guiders")}
+          sx={{
+            minWidth: 40,
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            border: `1px solid ${T.border}`,
+            bgcolor: T.surface,
+            color: T.textMuted,
+            p: 0,
+            "&:hover": {
+              bgcolor: T.surfaceSoft,
+              borderColor: T.borderStrong,
+            },
+          }}
         >
-          <FaArrowLeft className="text-gray-600" />
-        </button>
-        <h2 className="text-2xl font-bold text-gray-800">Add New Guider</h2>
-      </div>
+          <ArrowBackIcon sx={{ fontSize: 18 }} />
+        </Button>
+        <PanelHeader eyebrow="Guiders" title="Add New Guider" />
+      </Stack>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/50 space-y-6">
-        {/* User Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">User *</label>
-          <select
-            {...register('userId', { required: 'User is required' })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select User</option>
-            {/* Populate this from API when component mounts */}
-            <option value="user1">User 1</option>
-            <option value="user2">User 2</option>
-          </select>
-          {errors.userId && <p className="text-red-500 text-sm mt-1">{errors.userId.message}</p>}
-        </div>
-
-        {/* Place Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Place *</label>
-          <select
-            {...register('placeId', { required: 'Place is required' })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Select Place</option>
-            {/* Populate this from API when component mounts */}
-            <option value="place1">Place 1</option>
-            <option value="place2">Place 2</option>
-          </select>
-          {errors.placeId && <p className="text-red-500 text-sm mt-1">{errors.placeId.message}</p>}
-        </div>
-
-        {/* Experience, Languages */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Experience (years) *</label>
-            <input
-              type="number"
-              min="0"
-              {...register('experience', { required: 'Experience is required', min: 0 })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. 5"
-            />
-            {errors.experience && <p className="text-red-500 text-sm mt-1">{errors.experience.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Languages</label>
-            <input
-              {...register('languages')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. English, Hindi"
-            />
-          </div>
-        </div>
-
-        {/* Bio */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-          <textarea
-            {...register('bio')}
-            rows="3"
-            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-            placeholder="About the guider..."
+      <Paper
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+        }}
+      >
+        <Stack spacing={2.5}>
+          {/* User Select */}
+          <Controller
+            name="userId"
+            control={control}
+            rules={{ required: "User is required" }}
+            render={({ field }) => (
+              <FormControl fullWidth error={!!errors.userId} sx={fieldSx}>
+                <InputLabel>Select User *</InputLabel>
+                <Select
+                  {...field}
+                  label="Select User *"
+                  disabled={usersLoading}
+                  startAdornment={
+                    <InputAdornment position="start" sx={{ ml: 0.5 }}>
+                      <PersonIcon sx={{ fontSize: 18, color: T.textFaint }} />
+                    </InputAdornment>
+                  }
+                >
+                  {users.map((u) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {`${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+                        u.email}{" "}
+                      ({u.email})
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.userId && (
+                  <Typography
+                    sx={{ fontSize: "0.7rem", color: T.rose, mt: 0.5, ml: 1.5 }}
+                  >
+                    {errors.userId.message}
+                  </Typography>
+                )}
+              </FormControl>
+            )}
           />
-        </div>
 
-        {/* Pricing */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price Per Hour ($) *</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              {...register('pricePerHour', { required: 'Hourly price is required', min: 0 })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. 25"
-            />
-            {errors.pricePerHour && <p className="text-red-500 text-sm mt-1">{errors.pricePerHour.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price Per Day ($) *</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              {...register('pricePerDay', { required: 'Daily price is required', min: 0 })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. 150"
-            />
-            {errors.pricePerDay && <p className="text-red-500 text-sm mt-1">{errors.pricePerDay.message}</p>}
-          </div>
-        </div>
+          {/* Profile Photo — dual mode */}
+          <ImageInput
+            label="Profile Photo"
+            value={profilePhotoUrl}
+            onChange={(url) =>
+              setValue("profilePhotoUrl", url, { shouldValidate: false })
+            }
+            folder="local-guider/guiders"
+            aspect="square"
+            helperText="Recommended: 400x400px, JPG/PNG, under 10MB"
+          />
 
-        {/* Profile Image */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Profile Image URL</label>
-          <div className="flex items-center gap-4">
-            <input
-              {...register('image')}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              placeholder="https://example.com/avatar.jpg"
-            />
-            <div className="p-3 bg-gray-100 rounded-xl text-gray-500">
-              <FaUser size={20} />
-            </div>
-          </div>
-        </div>
+          {/* Full Name */}
+          <Controller
+            name="fullName"
+            control={control}
+            rules={{ required: "Full name is required" }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Full Name *"
+                placeholder="e.g. Rahul Sharma"
+                error={!!errors.fullName}
+                helperText={errors.fullName?.message}
+                sx={fieldSx}
+              />
+            )}
+          />
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={() => navigate('/guiders')}
-            className="px-6 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+          {/* Company + Location */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2,
+            }}
           >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-70"
+            <Controller
+              name="companyName"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Company Name"
+                  placeholder="Optional"
+                  sx={fieldSx}
+                />
+              )}
+            />
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Location"
+                  placeholder="City / area"
+                  sx={fieldSx}
+                />
+              )}
+            />
+          </Box>
+
+          {/* Experience + Languages */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2,
+            }}
           >
-            {loading ? 'Creating...' : <><FaSave /> Create Guider</>}
-          </button>
-        </div>
-      </form>
-    </div>
+            <Controller
+              name="experience"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  type="number"
+                  label="Experience (years)"
+                  placeholder="e.g. 5"
+                  sx={fieldSx}
+                />
+              )}
+            />
+            <Controller
+              name="languages"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Languages"
+                  placeholder="Comma-separated: English, Hindi"
+                  sx={fieldSx}
+                />
+              )}
+            />
+          </Box>
+
+          {/* Place Select */}
+          <Controller
+            name="placeIds"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth sx={fieldSx}>
+                <InputLabel>Places Covered (max 3)</InputLabel>
+                <Select
+                  {...field}
+                  multiple
+                  label="Places Covered (max 3)"
+                  disabled={placesLoading}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 3) field.onChange(value);
+                    else toast.warning("Maximum 3 places allowed");
+                  }}
+                  renderValue={(selected) =>
+                    selected
+                      .map((id) => places.find((p) => p.id === id)?.name || id)
+                      .join(", ")
+                  }
+                >
+                  {places.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.name} {p.city ? `(${p.city})` : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          />
+
+          {/* Bio */}
+          <Controller
+            name="bio"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                multiline
+                rows={3}
+                label="Bio / About"
+                placeholder="Brief description about the guider..."
+                sx={fieldSx}
+              />
+            )}
+          />
+
+          {/* Actions */}
+          <Stack
+            direction="row"
+            justifyContent="flex-end"
+            spacing={1.5}
+            sx={{ mt: 3, pt: 2.5, borderTop: `1px solid ${T.border}` }}
+          >
+            <Button
+              type="button"
+              onClick={() => navigate("/guiders")}
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "0.82rem",
+                color: T.textMuted,
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                border: `1px solid ${T.border}`,
+                bgcolor: T.surface,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              startIcon={
+                loading ? (
+                  <CircularProgress size={14} sx={{ color: "#fff" }} />
+                ) : (
+                  <SaveIcon sx={{ fontSize: 16 }} />
+                )
+              }
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                bgcolor: T.indigo,
+                color: "#fff",
+                px: 3,
+                py: 1,
+                borderRadius: 2,
+                boxShadow: "none",
+                "&:hover": { bgcolor: "#4f46e5" },
+                "&.Mui-disabled": {
+                  bgcolor: T.indigo,
+                  opacity: 0.6,
+                  color: "#fff",
+                },
+              }}
+            >
+              {loading ? "Creating..." : "Create Guider"}
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+    </Box>
   );
 };
 
