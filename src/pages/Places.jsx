@@ -29,6 +29,7 @@ import {
   Tooltip,
   Divider,
 } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
 import {
   Search,
   Add,
@@ -146,6 +147,10 @@ const CategorySelect = ({ value, onChange, size = "small" }) => (
 // PLACE MODAL — with LocationPicker
 // ═══════════════════════════════════════════════════════════════
 const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
+  // ✅ FIX: pull theme mode instead of using undefined `isDark`
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -404,8 +409,11 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               sx={{
                 p: 2.5,
                 borderRadius: 2,
-                border: `1px solid ${T.indigo}40`,
-                bgcolor: isDark ? "rgba(99,102,241,0.05)" : `${T.indigo}05`,
+                border: `1px solid ${alpha(T.indigo, 0.25)}`,
+                // ✅ FIX: isDark now defined via useTheme()
+                bgcolor: isDark
+                  ? alpha(T.indigo, 0.08)
+                  : alpha(T.indigo, 0.04),
               }}
             >
               <Stack
