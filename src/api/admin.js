@@ -1,4 +1,7 @@
 // src/api/admin.js
+// ═══════════════════════════════════════════════════════════════
+// ADMIN API — all admin endpoints
+// ═══════════════════════════════════════════════════════════════
 import apiClient from "./axios";
 
 // ═══════════════════════════════════════════════════════════════
@@ -9,7 +12,8 @@ export const getDashboardStats = () => apiClient.get("/admin/dashboard");
 // ═══════════════════════════════════════════════════════════════
 // USERS
 // ═══════════════════════════════════════════════════════════════
-export const getUsers = (params) => apiClient.get("/admin/users", { params });
+export const getUsers = (params) =>
+  apiClient.get("/admin/users", { params });
 export const getUserById = (id) => apiClient.get(`/admin/users/${id}`);
 export const getUser = getUserById;
 export const updateUserStatus = (id, isActive) =>
@@ -21,7 +25,8 @@ export const deleteUser = (id) => apiClient.delete(`/admin/users/${id}`);
 // ═══════════════════════════════════════════════════════════════
 export const blockUser = (blockedUserId, reason = "Admin block") =>
   apiClient.post("/blocks", { blockedUserId, reason });
-export const unblockUser = (blockId) => apiClient.delete(`/blocks/${blockId}`);
+export const unblockUser = (blockId) =>
+  apiClient.delete(`/blocks/${blockId}`);
 export const unblockUserByUserId = (blockedUserId) =>
   apiClient.delete(`/blocks/by-user/${blockedUserId}`);
 export const getBlocks = () => apiClient.get("/blocks");
@@ -36,6 +41,8 @@ export const updateGuiderStatus = (id, isActive) =>
   apiClient.put(`/admin/guiders/${id}/status`, { isActive });
 export const deleteGuider = (id) => apiClient.delete(`/admin/guiders/${id}`);
 export const createGuider = (data) => apiClient.post("/admin/guiders", data);
+export const updateGuider = (id, data) =>
+  apiClient.put(`/admin/guiders/${id}`, data);
 
 // ═══════════════════════════════════════════════════════════════
 // PHOTOGRAPHERS
@@ -50,24 +57,30 @@ export const deletePhotographer = (id) =>
   apiClient.delete(`/admin/photographers/${id}`);
 export const createPhotographer = (data) =>
   apiClient.post("/admin/photographers", data);
+export const updatePhotographer = (id, data) =>
+  apiClient.put(`/admin/photographers/${id}`, data);
 
 // ═══════════════════════════════════════════════════════════════
-// PLACES
+// ✅ PLACES — Admin endpoints
 // ═══════════════════════════════════════════════════════════════
 export const getPlaces = (params) =>
-  apiClient.get("/admin/places", { params });
-export const getPlaceById = (id) => apiClient.get(`/admin/places/${id}`);
-export const createPlace = (data) => apiClient.post("/admin/places", data);
+  apiClient.get("/admin/places", { params });        // ✅ admin route
+export const getPlaceById = (id) =>
+  apiClient.get(`/admin/places/${id}`);              // ✅ admin route
+export const createPlace = (data) =>
+  apiClient.post("/admin/places", data);             // ✅ admin route
 export const updatePlace = (id, data) =>
-  apiClient.put(`/admin/places/${id}`, data);
+  apiClient.put(`/admin/places/${id}`, data);        // ✅ admin route
 export const updatePlaceStatus = (id, isActive) =>
-  apiClient.put(`/admin/places/${id}/status`, { isActive });
-export const deletePlace = (id) => apiClient.delete(`/admin/places/${id}`);
+  apiClient.put(`/admin/places/${id}/status`, { isActive }); // ✅ admin route
+export const deletePlace = (id) =>
+  apiClient.delete(`/admin/places/${id}`);           // ✅ admin route
 
 // ═══════════════════════════════════════════════════════════════
 // SLIDERS
 // ═══════════════════════════════════════════════════════════════
-export const getSliders = (params) => apiClient.get("/sliders", { params });
+export const getSliders = (params) =>
+  apiClient.get("/sliders", { params });
 export const getSliderById = (id) => apiClient.get(`/sliders/${id}`);
 export const createSlider = (data) => apiClient.post("/sliders", data);
 export const updateSlider = (id, data) =>
@@ -77,10 +90,12 @@ export const deleteSlider = (id) => apiClient.delete(`/sliders/${id}`);
 // ═══════════════════════════════════════════════════════════════
 // OFFERS
 // ═══════════════════════════════════════════════════════════════
-export const getOffers = (params) => apiClient.get("/offers", { params });
+export const getOffers = (params) =>
+  apiClient.get("/offers", { params });
 export const getOfferById = (id) => apiClient.get(`/offers/${id}`);
 export const createOffer = (data) => apiClient.post("/offers", data);
-export const updateOffer = (id, data) => apiClient.put(`/offers/${id}`, data);
+export const updateOffer = (id, data) =>
+  apiClient.put(`/offers/${id}`, data);
 export const deleteOffer = (id) => apiClient.delete(`/offers/${id}`);
 
 // ═══════════════════════════════════════════════════════════════
@@ -108,7 +123,8 @@ export const getReviews = (params) =>
 export const getReviewById = (id) => apiClient.get(`/admin/reviews/${id}`);
 export const updateReviewStatus = (id, isActive) =>
   apiClient.put(`/admin/reviews/${id}/status`, { isActive });
-export const deleteReview = (id) => apiClient.delete(`/admin/reviews/${id}`);
+export const deleteReview = (id) =>
+  apiClient.delete(`/admin/reviews/${id}`);
 
 // ═══════════════════════════════════════════════════════════════
 // BOOKINGS
@@ -117,7 +133,7 @@ export const getBookings = (params) =>
   apiClient.get("/admin/bookings", { params });
 export const getBookingById = (id) => apiClient.get(`/admin/bookings/${id}`);
 export const updateBookingStatus = (id, status, notes) =>
-  apiClient.put(`/bookings/${id}/status`, { status, notes });
+  apiClient.put(`/admin/bookings/${id}/status`, { status, notes });
 
 // ═══════════════════════════════════════════════════════════════
 // ROLE REQUESTS
@@ -131,13 +147,16 @@ export const rejectRoleRequest = (id, adminMessage) =>
     status: "REJECTED",
     adminMessage,
   });
+export const updateRoleRequestDocs = (id, data) =>
+  apiClient.put(`/role-requests/${id}`, data);
 
 // ═══════════════════════════════════════════════════════════════
-// PAYMENTS (Admin)
+// PAYMENTS
 // ═══════════════════════════════════════════════════════════════
 export const getPayments = (params) =>
   apiClient.get("/payments/admin", { params });
-export const getPaymentById = (id) => apiClient.get(`/payments/admin/${id}`);
+export const getPaymentById = (id) =>
+  apiClient.get(`/payments/admin/${id}`);
 
 // ═══════════════════════════════════════════════════════════════
 // CHAT MANAGEMENT
@@ -193,7 +212,7 @@ export const updateWalletBalance = (userId, data) =>
   apiClient.put(`/wallet/${userId}/balance`, data);
 
 // ═══════════════════════════════════════════════════════════════
-// GALLERY — Place / Guider / Photographer
+// GALLERY
 // ═══════════════════════════════════════════════════════════════
 export const addPlaceGalleryImage = (placeId, imageUrl) =>
   apiClient.post(`/places/${placeId}/gallery`, { imageUrl });
@@ -217,3 +236,89 @@ export const removePhotographerGalleryImage = (photographerId, imageUrl) =>
   });
 export const replacePhotographerGallery = (photographerId, images) =>
   apiClient.put(`/photographers/${photographerId}/gallery`, { images });
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ NEW: LOCATIONS (Nominatim search)
+// ═══════════════════════════════════════════════════════════════
+export const searchLocations = async (query, options = {}) => {
+  if (!query || query.trim().length < 2) return [];
+
+  const { countryCode = "in", limit = 15 } = options;
+
+  try {
+    const params = new URLSearchParams({
+      q: query.trim(),
+      format: "json",
+      addressdetails: "1",
+      limit: String(limit),
+      countrycodes: countryCode,
+    });
+
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+      {
+        headers: {
+          "User-Agent": "LocalGuiderAdmin/1.0",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    const seen = new Set();
+    const results = [];
+
+    for (const item of data) {
+      const addr = item.address || {};
+
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.municipality ||
+        addr.suburb ||
+        addr.county ||
+        "";
+
+      const district =
+        addr.state_district ||
+        addr.county ||
+        addr.district ||
+        city ||
+        "";
+
+      const state = addr.state || addr.region || "";
+      const country = addr.country || "";
+
+      if (!city && !district && !state) continue;
+
+      const uniqueKey = `${city}|${district}|${state}`.toLowerCase();
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
+
+      const displayParts = [city, district, state, country].filter(
+        (v, i, arr) => v && arr.indexOf(v) === i
+      );
+
+      results.push({
+        id: String(item.place_id || uniqueKey),
+        city: city || district || state,
+        district: district || city,
+        state,
+        country,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        displayName: displayParts.join(", "),
+      });
+    }
+
+    return results;
+  } catch (err) {
+    console.error("Location search error:", err);
+    return [];
+  }
+};
