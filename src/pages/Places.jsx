@@ -1,6 +1,6 @@
 // src/pages/Places.jsx
 // ═══════════════════════════════════════════════════════════════
-// PLACES MANAGEMENT — with ImageInput + MultiImageInput
+// PLACES MANAGEMENT — with LocationPicker + auto-fill
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -40,6 +40,7 @@ import {
   Place as PlaceIcon,
   PhotoLibrary,
   Refresh,
+  Map as MapIcon,
 } from "@mui/icons-material";
 import {
   DataGrid,
@@ -61,6 +62,7 @@ import {
   PanelHeader,
   Loader,
 } from "../components";
+import LocationPicker from "../components/LocationPicker";
 import { replacePlaceGallery } from "../api/admin";
 import {
   getImageUrlGeneric,
@@ -141,7 +143,7 @@ const CategorySelect = ({ value, onChange, size = "small" }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// PLACE MODAL — with ImageInput + MultiImageInput
+// PLACE MODAL — with LocationPicker
 // ═══════════════════════════════════════════════════════════════
 const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
   const [formData, setFormData] = useState({
@@ -149,7 +151,9 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
     description: "",
     category: "",
     address: "",
+    // Location fields (auto-filled from LocationPicker)
     city: "",
+    district: "",
     state: "",
     country: "",
     latitude: "",
@@ -170,8 +174,9 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
         category: place.category || "",
         address: place.address || "",
         city: place.city || "",
+        district: place.district || "",
         state: place.state || "",
-        country: place.country || "",
+        country: place.country || "India",
         latitude: place.latitude || "",
         longitude: place.longitude || "",
         image: place.image || "",
@@ -188,8 +193,9 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
         category: "",
         address: "",
         city: "",
+        district: "",
         state: "",
-        country: "",
+        country: "India",
         latitude: "",
         longitude: "",
         image: "",
@@ -207,9 +213,39 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ LocationPicker change handler
+  const handleLocationChange = (location) => {
+    if (!location) {
+      setFormData((prev) => ({
+        ...prev,
+        city: "",
+        district: "",
+        state: "",
+        country: "",
+        latitude: "",
+        longitude: "",
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      city: location.city || "",
+      district: location.district || "",
+      state: location.state || "",
+      country: location.country || "India",
+      latitude: location.lat != null ? String(location.lat) : "",
+      longitude: location.lng != null ? String(location.lng) : "",
+    }));
+  };
+
   const handleSubmit = () => {
-    if (!formData.name.trim() || !formData.city.trim()) {
-      toast.error("Name and City are required");
+    if (!formData.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    if (!formData.city.trim()) {
+      toast.error("Please select a location (city/district)");
       return;
     }
     onSave(formData);
@@ -227,6 +263,19 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
       },
     },
   };
+
+  // ✅ Current location value (for LocationPicker)
+  const locationValue =
+    formData.city || formData.district
+      ? {
+          city: formData.city,
+          district: formData.district,
+          state: formData.state,
+          country: formData.country,
+          lat: formData.latitude ? parseFloat(formData.latitude) : null,
+          lng: formData.longitude ? parseFloat(formData.longitude) : null,
+        }
+      : null;
 
   return (
     <Dialog
@@ -270,7 +319,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
         sx={{
           p: 3,
           borderColor: T.border,
-          maxHeight: "70vh",
+          maxHeight: "75vh",
           overflowY: "auto",
         }}
       >
@@ -281,6 +330,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             gap: 2.5,
           }}
         >
+          {/* NAME */}
           <TextField
             fullWidth
             label="Place Name"
@@ -299,6 +349,8 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               },
             }}
           />
+
+          {/* CATEGORY */}
           <CategorySelect
             value={formData.category}
             onChange={(e) =>
@@ -307,6 +359,8 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               })
             }
           />
+
+          {/* DESCRIPTION */}
           <Box sx={{ gridColumn: { md: "span 2" } }}>
             <TextField
               fullWidth
@@ -319,6 +373,8 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               sx={inputSx}
             />
           </Box>
+
+          {/* ADDRESS */}
           <Box sx={{ gridColumn: { md: "span 2" } }}>
             <TextField
               fullWidth
@@ -338,49 +394,48 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
               }}
             />
           </Box>
-          <TextField
-            fullWidth
-            label="City"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            required
-            sx={inputSx}
-          />
-          <TextField
-            fullWidth
-            label="State"
-            name="state"
-            value={formData.state}
-            onChange={handleChange}
-            sx={inputSx}
-          />
-          <TextField
-            fullWidth
-            label="Country"
-            name="country"
-            value={formData.country}
-            onChange={handleChange}
-            sx={inputSx}
-          />
-          <TextField
-            fullWidth
-            label="Latitude"
-            name="latitude"
-            type="number"
-            value={formData.latitude}
-            onChange={handleChange}
-            sx={inputSx}
-          />
-          <TextField
-            fullWidth
-            label="Longitude"
-            name="longitude"
-            type="number"
-            value={formData.longitude}
-            onChange={handleChange}
-            sx={inputSx}
-          />
+
+          {/* ═══════════════════════════════════════════════════ */}
+          {/* ✅ LOCATION PICKER — auto-fills city/district/state/lat/lng */}
+          {/* ═══════════════════════════════════════════════════ */}
+          <Box sx={{ gridColumn: { md: "span 2" } }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: `1px solid ${T.indigo}40`,
+                bgcolor: isDark ? "rgba(99,102,241,0.05)" : `${T.indigo}05`,
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                sx={{ mb: 2 }}
+              >
+                <MapIcon sx={{ fontSize: 18, color: T.indigo }} />
+                <Typography
+                  sx={{
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    color: T.indigo,
+                  }}
+                >
+                  Location
+                </Typography>
+              </Stack>
+
+              <LocationPicker
+                value={locationValue}
+                onChange={handleLocationChange}
+                label=""
+                helperText=""
+              />
+            </Paper>
+          </Box>
+
+          {/* TIME FIELDS */}
           <TextField
             fullWidth
             label="Opening Time"
@@ -400,7 +455,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             sx={inputSx}
           />
 
-          {/* ═══════ MAIN IMAGE — dual mode ═══════ */}
+          {/* MAIN IMAGE */}
           <Box sx={{ gridColumn: { md: "span 2" } }}>
             <ImageInput
               label="Main Image"
@@ -414,7 +469,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             />
           </Box>
 
-          {/* ═══════ GALLERY — multi image ═══════ */}
+          {/* GALLERY */}
           <Box sx={{ gridColumn: { md: "span 2" } }}>
             <MultiImageInput
               label="Photo Gallery"
@@ -428,6 +483,7 @@ const PlaceModal = ({ open, onClose, place, onSave, saving }) => {
             />
           </Box>
 
+          {/* SWITCHES */}
           <Stack direction="row" alignItems="center" spacing={1}>
             <Typography
               sx={{
@@ -536,6 +592,7 @@ const Places = () => {
   const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCity, setFilterCity] = useState("");
+  const [filterDistrict, setFilterDistrict] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [galleryDialog, setGalleryDialog] = useState({
@@ -558,9 +615,13 @@ const Places = () => {
       !searchTerm ||
       item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.category?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCity =
       !filterCity || item.city?.toLowerCase() === filterCity.toLowerCase();
+    const matchesDistrict =
+      !filterDistrict ||
+      item.district?.toLowerCase() === filterDistrict.toLowerCase();
     const matchesCategory =
       !filterCategory ||
       item.category?.toLowerCase() === filterCategory.toLowerCase();
@@ -569,11 +630,20 @@ const Places = () => {
       (filterStatus === "true"
         ? item.isActive === true
         : item.isActive === false);
-    return matchesSearch && matchesCity && matchesCategory && matchesStatus;
+    return (
+      matchesSearch &&
+      matchesCity &&
+      matchesDistrict &&
+      matchesCategory &&
+      matchesStatus
+    );
   });
 
   const uniqueCities = [
     ...new Set((items || []).map((item) => item.city).filter(Boolean)),
+  ];
+  const uniqueDistricts = [
+    ...new Set((items || []).map((item) => item.district).filter(Boolean)),
   ];
 
   const handleSave = async (data) => {
@@ -666,12 +736,32 @@ const Places = () => {
     {
       field: "city",
       headerName: "City",
-      flex: 0.9,
-      minWidth: 110,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => (
         <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
           {params.row.city || "—"}
         </Typography>
+      ),
+    },
+    {
+      field: "district",
+      headerName: "District",
+      flex: 0.9,
+      minWidth: 110,
+      renderCell: (params) => (
+        <Chip
+          label={params.row.district || "—"}
+          size="small"
+          sx={{
+            bgcolor: T.skySoft,
+            color: "#0369a1",
+            fontWeight: 700,
+            fontSize: "0.65rem",
+            height: 22,
+            borderRadius: 999,
+          }}
+        />
       ),
     },
     {
@@ -706,8 +796,8 @@ const Places = () => {
     {
       field: "rating",
       headerName: "Rating",
-      flex: 0.6,
-      minWidth: 90,
+      flex: 0.5,
+      minWidth: 80,
       renderCell: (params) => (
         <Stack direction="row" alignItems="center" spacing={0.5}>
           <Star sx={{ fontSize: 14, color: T.amber }} />
@@ -850,7 +940,7 @@ const Places = () => {
         <PanelHeader eyebrow="Places" title="Places Management" />
       </Box>
 
-      {/* ═══════ Filters ═══════ */}
+      {/* FILTERS */}
       <Paper
         elevation={0}
         sx={{
@@ -897,7 +987,7 @@ const Places = () => {
             }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>City</InputLabel>
             <Select
               value={filterCity}
@@ -914,6 +1004,24 @@ const Places = () => {
             </Select>
           </FormControl>
 
+          {/* ✅ NEW: District filter */}
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>District</InputLabel>
+            <Select
+              value={filterDistrict}
+              onChange={(e) => setFilterDistrict(e.target.value)}
+              label="District"
+              sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
+            >
+              <MenuItem value="">All Districts</MenuItem>
+              {uniqueDistricts.map((d) => (
+                <MenuItem key={d} value={d}>
+                  {d}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <Box sx={{ minWidth: 170 }}>
             <CategorySelect
               value={filterCategory}
@@ -922,7 +1030,7 @@ const Places = () => {
             />
           </Box>
 
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
             <InputLabel>Status</InputLabel>
             <Select
               value={filterStatus}
@@ -930,7 +1038,7 @@ const Places = () => {
               label="Status"
               sx={{ borderRadius: 2, bgcolor: T.surfaceSoft }}
             >
-              <MenuItem value="">All Status</MenuItem>
+              <MenuItem value="">All</MenuItem>
               <MenuItem value="true">Active</MenuItem>
               <MenuItem value="false">Inactive</MenuItem>
             </Select>
@@ -976,7 +1084,7 @@ const Places = () => {
         </Stack>
       </Paper>
 
-      {/* ═══════ Table ═══════ */}
+      {/* TABLE */}
       <Paper
         elevation={0}
         sx={{
@@ -1017,7 +1125,6 @@ const Places = () => {
               "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
               "& .MuiDataGrid-row": {
                 borderBottom: `1px solid ${T.border}`,
-                transition: "background-color 0.15s ease",
               },
               "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
               "& .MuiDataGrid-cell": {
@@ -1040,7 +1147,7 @@ const Places = () => {
         )}
       </Paper>
 
-      {/* ═══════ Gallery Dialog ═══════ */}
+      {/* Gallery Dialog */}
       <Dialog
         open={galleryDialog.open}
         onClose={() => setGalleryDialog({ open: false, place: null })}
@@ -1088,7 +1195,7 @@ const Places = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ═══════ Edit/Add Modal ═══════ */}
+      {/* Edit/Add Modal */}
       <PlaceModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -1097,7 +1204,7 @@ const Places = () => {
         saving={saving}
       />
 
-      {/* ═══════ Delete Confirm ═══════ */}
+      {/* Delete Confirm */}
       <Dialog
         open={!!deleteConfirm}
         onClose={() => !deleting && setDeleteConfirm(null)}
