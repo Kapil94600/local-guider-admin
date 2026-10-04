@@ -1,6 +1,8 @@
 // src/pages/RoleRequests.jsx
 // ═══════════════════════════════════════════════════════════════
-// ROLE REQUESTS — Auto-refresh + Editable KYC docs
+// ROLE REQUESTS — Full details view (Admin)
+// Shows: bio, whatsapp, alt phone, email, DOB, gender,
+//        experience, languages + docs + places
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -11,8 +13,18 @@ import {
   Visibility,
   Search as SearchIcon,
   Refresh,
-  Inbox as InboxIcon,
   Save as SaveIcon,
+  Person as PersonIcon,
+  Mail as MailIcon,
+  Phone as PhoneIcon,
+  LogoWhatsapp,
+  Calendar as CalendarIcon,
+  Transgender as GenderIcon,
+  Briefcase as BriefcaseIcon,
+  Language as LanguageIcon,
+  LocationOn as LocationIcon,
+  Business as BusinessIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
 import {
   Box,
@@ -99,6 +111,21 @@ const getImageUrl = (path) => {
   return `${SERVER_BASE}${path.startsWith("/") ? path : "/" + path}`;
 };
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return null;
+  }
+};
+
 const ID_TYPE_LABELS = {
   AADHAAR: "Aadhaar Card",
   PAN: "PAN Card",
@@ -119,6 +146,12 @@ const STATUS_STYLES = {
   REJECTED: { bg: T.roseSoft, color: "#be123c" },
 };
 
+const GENDER_LABELS = {
+  MALE: "Male",
+  FEMALE: "Female",
+  OTHER: "Other",
+};
+
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
     <GridToolbarFilterButton />
@@ -127,7 +160,7 @@ const CustomToolbar = () => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// ✅ NEW: Auto-refresh hook — every 30s (pauses when tab hidden)
+// AUTO REFRESH HOOK
 // ═══════════════════════════════════════════════════════════════
 const useAutoRefresh = (callback, intervalMs = 30000) => {
   useEffect(() => {
@@ -135,13 +168,12 @@ const useAutoRefresh = (callback, intervalMs = 30000) => {
       if (document.hidden) return;
       callback();
     }, intervalMs);
-
     return () => clearInterval(timer);
   }, [callback, intervalMs]);
 };
 
 // ═══════════════════════════════════════════════════════════════
-// USER AVATAR
+// AVATAR
 // ═══════════════════════════════════════════════════════════════
 const UserAvatar = ({ row, size = 38 }) => {
   const url = getImageUrl(row?.profilePhotoUrl || row?.profileImage);
@@ -167,15 +199,6 @@ const UserAvatar = ({ row, size = 38 }) => {
         border: "2px solid #fff",
         boxShadow: "0 2px 6px rgba(15,23,42,0.1)",
       }}
-      slotProps={{
-        img: {
-          onError: (e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = "";
-            e.currentTarget.style.display = "none";
-          },
-        },
-      }}
     >
       {initial}
     </Avatar>
@@ -185,15 +208,29 @@ const UserAvatar = ({ row, size = 38 }) => {
 // ═══════════════════════════════════════════════════════════════
 // SECTION HEADER
 // ═══════════════════════════════════════════════════════════════
-const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
+const SectionHeader = ({ icon, title, subtitle, accent = T.indigo }) => (
   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-    <Box sx={{ width: 4, height: 22, borderRadius: 1, bgcolor: accent }} />
+    <Box
+      sx={{
+        width: 32,
+        height: 32,
+        borderRadius: 1.5,
+        bgcolor: `${accent}15`,
+        color: accent,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </Box>
     <Box>
       <Typography
         sx={{
           fontFamily: T.fontDisplay,
           fontWeight: 700,
-          fontSize: "0.95rem",
+          fontSize: "0.92rem",
           color: T.textPrimary,
         }}
       >
@@ -201,12 +238,7 @@ const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
       </Typography>
       {subtitle && (
         <Typography
-          sx={{
-            fontSize: "0.7rem",
-            color: T.textFaint,
-            mt: 0.2,
-            fontWeight: 500,
-          }}
+          sx={{ fontSize: "0.68rem", color: T.textFaint, mt: 0.2 }}
         >
           {subtitle}
         </Typography>
@@ -216,7 +248,65 @@ const SectionHeader = ({ title, subtitle, accent = T.indigo }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// DOC THUMB (read-only preview)
+// INFO ROW (label + value)
+// ═══════════════════════════════════════════════════════════════
+const InfoRow = ({ icon, label, value, accent = T.indigo, empty }) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 1.5,
+      p: 1.5,
+      borderRadius: 1.5,
+      bgcolor: T.surfaceSoft,
+      border: `1px solid ${T.border}`,
+    }}
+  >
+    <Box
+      sx={{
+        width: 30,
+        height: 30,
+        borderRadius: 1.5,
+        bgcolor: `${accent}15`,
+        color: accent,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        mt: 0.2,
+      }}
+    >
+      {icon}
+    </Box>
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <Typography
+        sx={{
+          fontSize: "0.6rem",
+          fontWeight: 700,
+          color: T.textFaint,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          mb: 0.3,
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: "0.85rem",
+          fontWeight: 600,
+          color: empty ? T.textFaint : T.textPrimary,
+          wordBreak: "break-word",
+        }}
+      >
+        {value || "—"}
+      </Typography>
+    </Box>
+  </Box>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// DOC THUMB
 // ═══════════════════════════════════════════════════════════════
 const DocThumb = ({ label, url }) => {
   const [errored, setErrored] = useState(false);
@@ -282,7 +372,7 @@ const DocThumb = ({ label, url }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// REQUEST DETAILS MODAL — editable KYC docs
+// REQUEST DETAILS MODAL
 // ═══════════════════════════════════════════════════════════════
 const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
   const [placeNames, setPlaceNames] = useState([]);
@@ -312,6 +402,7 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
     }
   }, [request]);
 
+  // Load place names
   useEffect(() => {
     const fetchPlaceNames = async () => {
       if (!request?.placeIds || request.placeIds.length === 0) {
@@ -378,6 +469,7 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
       fullWidth
       slotProps={{ paper: { sx: { borderRadius: T.radius } } }}
     >
+      {/* ═══ HEADER ═══ */}
       <DialogTitle
         sx={{
           fontFamily: T.fontDisplay,
@@ -405,41 +497,67 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
           }}
         />
       </DialogTitle>
+
       <DialogContent dividers sx={{ borderColor: T.border, p: 3 }}>
+        {/* ═══ APPLICANT HEADER ═══ */}
         <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-          <UserAvatar row={request} size={56} />
+          <UserAvatar row={request} size={64} />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
-              sx={{ fontSize: "1rem", fontWeight: 700, color: T.textPrimary }}
+              sx={{ fontSize: "1.05rem", fontWeight: 700, color: T.textPrimary }}
             >
               {request.fullName || "N/A"}
             </Typography>
-            <Typography
-              sx={{ fontSize: "0.78rem", color: T.textMuted, mt: 0.2 }}
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ mt: 0.5, flexWrap: "wrap" }}
             >
-              {request.companyName || "N/A"} • {request.location || "N/A"}
-            </Typography>
+              <Chip
+                label={request.requestedRole}
+                size="small"
+                sx={{
+                  bgcolor: roleStyle.bg,
+                  color: roleStyle.color,
+                  fontWeight: 700,
+                  fontSize: "0.65rem",
+                  height: 22,
+                  borderRadius: 999,
+                }}
+              />
+              {request.companyName && (
+                <Typography
+                  sx={{ fontSize: "0.75rem", color: T.textMuted }}
+                >
+                  • {request.companyName}
+                </Typography>
+              )}
+              {request.location && (
+                <Typography
+                  sx={{ fontSize: "0.75rem", color: T.textMuted }}
+                >
+                  • {request.location}
+                </Typography>
+              )}
+            </Stack>
           </Box>
-          <Chip
-            label={request.requestedRole}
-            size="small"
-            sx={{
-              bgcolor: roleStyle.bg,
-              color: roleStyle.color,
-              fontWeight: 700,
-              fontSize: "0.65rem",
-              height: 22,
-              borderRadius: 999,
-            }}
-          />
         </Stack>
 
-        {/* ═══════ Basic Info ═══════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 1. BASIC INFO                                          */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <SectionHeader
+          icon={<PersonIcon sx={{ fontSize: 16 }} />}
+          title="Basic Information"
+          subtitle="Name and business details"
+          accent={T.indigo}
+        />
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gap: 2.5,
+            gap: 1.5,
             mb: 3,
           }}
         >
@@ -483,106 +601,193 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
             </>
           ) : (
             <>
-              {[
-                { label: "Full Name", value: request.fullName || "N/A" },
-                { label: "Company", value: request.companyName || "N/A" },
-                { label: "Location", value: request.location || "N/A" },
-              ].map((item) => (
-                <Box key={item.label}>
-                  <Typography
-                    sx={{
-                      fontSize: "0.62rem",
-                      color: T.textFaint,
-                      fontWeight: 700,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      mb: 0.5,
-                    }}
-                  >
-                    {item.label}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "0.88rem",
-                      fontWeight: 600,
-                      color: T.textPrimary,
-                    }}
-                  >
-                    {item.value}
-                  </Typography>
-                </Box>
-              ))}
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.62rem",
-                    color: T.textFaint,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    mb: 0.5,
-                  }}
-                >
-                  ID Type
-                </Typography>
-                <Chip
-                  label={ID_TYPE_LABELS[request.idType] || request.idType || "N/A"}
-                  size="small"
-                  sx={{
-                    bgcolor: T.indigoSoft,
-                    color: T.indigo,
-                    fontWeight: 700,
-                    fontSize: "0.65rem",
-                    height: 22,
-                    borderRadius: 999,
-                  }}
-                />
-              </Box>
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.62rem",
-                    color: T.textFaint,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    mb: 0.5,
-                  }}
-                >
-                  Submitted On
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: T.textPrimary,
-                  }}
-                >
-                  {request.createdAt
-                    ? new Date(request.createdAt).toLocaleString("en-IN")
-                    : "N/A"}
-                </Typography>
-              </Box>
+              <InfoRow
+                icon={<PersonIcon sx={{ fontSize: 14 }} />}
+                label="Full Name"
+                value={request.fullName}
+                accent={T.indigo}
+              />
+              <InfoRow
+                icon={<BusinessIcon sx={{ fontSize: 14 }} />}
+                label="Company"
+                value={request.companyName}
+                accent={T.violet}
+              />
+              <InfoRow
+                icon={<LocationIcon sx={{ fontSize: 14 }} />}
+                label="Location"
+                value={request.location}
+                accent={T.emerald}
+              />
+              <InfoRow
+                icon={<InfoIcon sx={{ fontSize: 14 }} />}
+                label="ID Type"
+                value={ID_TYPE_LABELS[request.idType] || request.idType || "—"}
+                accent={T.sky}
+              />
             </>
           )}
         </Box>
 
-        {/* ═══════ Places ═══════ */}
-        <Box sx={{ mb: 3 }}>
-          <SectionHeader
-            title={`Selected Places (${placeNames.length})`}
-            subtitle="Locations the applicant wants to cover"
-            accent={T.emerald}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 2. CONTACT DETAILS                                     */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <SectionHeader
+          icon={<PhoneIcon sx={{ fontSize: 16 }} />}
+          title="Contact Details"
+          subtitle="How customers can reach out"
+          accent={T.emerald}
+        />
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            gap: 1.5,
+            mb: 3,
+          }}
+        >
+          <InfoRow
+            icon={<MailIcon sx={{ fontSize: 14 }} />}
+            label="Email Address"
+            value={request.email || request.user?.email}
+            accent={T.sky}
+            empty={!request.email && !request.user?.email}
           />
+          <InfoRow
+            icon={<LogoWhatsapp sx={{ fontSize: 14 }} />}
+            label="WhatsApp Number"
+            value={request.whatsappNumber}
+            accent="#25D366"
+            empty={!request.whatsappNumber}
+          />
+          <InfoRow
+            icon={<PhoneIcon sx={{ fontSize: 14 }} />}
+            label="Alternate Phone"
+            value={request.alternatePhone}
+            accent={T.amber}
+            empty={!request.alternatePhone}
+          />
+          {/* Account phone (from users table) */}
+          <InfoRow
+            icon={<PhoneIcon sx={{ fontSize: 14 }} />}
+            label="Account Phone"
+            value={request.user?.phone}
+            accent={T.rose}
+            empty={!request.user?.phone}
+          />
+        </Box>
+
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 3. PERSONAL DETAILS                                    */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <SectionHeader
+          icon={<CalendarIcon sx={{ fontSize: 16 }} />}
+          title="Personal Details"
+          subtitle="DOB and gender"
+          accent={T.violet}
+        />
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+            gap: 1.5,
+            mb: 3,
+          }}
+        >
+          <InfoRow
+            icon={<CalendarIcon sx={{ fontSize: 14 }} />}
+            label="Date of Birth"
+            value={formatDate(request.dateOfBirth)}
+            accent={T.violet}
+            empty={!request.dateOfBirth}
+          />
+          <InfoRow
+            icon={<GenderIcon sx={{ fontSize: 14 }} />}
+            label="Gender"
+            value={GENDER_LABELS[request.gender] || request.gender}
+            accent={T.rose}
+            empty={!request.gender}
+          />
+        </Box>
+
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 4. PROFESSIONAL DETAILS                                */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <SectionHeader
+          icon={<BriefcaseIcon sx={{ fontSize: 16 }} />}
+          title="Professional Details"
+          subtitle="Bio, experience & languages"
+          accent={T.emerald}
+        />
+        <Stack spacing={1.5} sx={{ mb: 3 }}>
+          <InfoRow
+            icon={<InfoIcon sx={{ fontSize: 14 }} />}
+            label="Bio / About"
+            value={request.bio || request.message}
+            accent={T.emerald}
+            empty={!request.bio && !request.message}
+          />
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 1.5,
+            }}
+          >
+            <InfoRow
+              icon={<BriefcaseIcon sx={{ fontSize: 14 }} />}
+              label="Experience"
+              value={
+                request.experience != null
+                  ? `${request.experience} year${
+                      request.experience === 1 ? "" : "s"
+                    }`
+                  : null
+              }
+              accent={T.amber}
+              empty={request.experience == null}
+            />
+            <InfoRow
+              icon={<LanguageIcon sx={{ fontSize: 14 }} />}
+              label="Languages"
+              value={
+                Array.isArray(request.languages) &&
+                request.languages.length > 0
+                  ? request.languages.join(", ")
+                  : null
+              }
+              accent={T.sky}
+              empty={
+                !Array.isArray(request.languages) ||
+                request.languages.length === 0
+              }
+            />
+          </Box>
+        </Stack>
+
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 5. SELECTED PLACES                                     */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <SectionHeader
+          icon={<LocationIcon sx={{ fontSize: 16 }} />}
+          title={`Selected Places (${placeNames.length})`}
+          subtitle="Locations the applicant wants to cover"
+          accent={T.sky}
+        />
+        <Box sx={{ mb: 3 }}>
           {placeNames.length > 0 ? (
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: "wrap", gap: 1 }}
+            >
               {placeNames.map((place, idx) => (
                 <Chip
                   key={idx}
                   label={place}
                   sx={{
-                    bgcolor: T.emeraldSoft,
-                    color: "#047857",
+                    bgcolor: T.skySoft,
+                    color: "#0369a1",
                     fontWeight: 700,
                     fontSize: "0.72rem",
                     height: 26,
@@ -598,138 +803,108 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
           )}
         </Box>
 
-        {/* ═══════ Verification Docs ═══════ */}
-        <Box sx={{ mb: 3 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
-          >
-            <SectionHeader
-              title="Verification Documents"
-              subtitle="Click any image to preview"
-              accent={T.sky}
-            />
-            {request.status === "PENDING" && (
-              <Button
-                size="small"
-                variant={editing ? "outlined" : "contained"}
-                onClick={() => (editing ? handleSaveDocs() : setEditing(true))}
-                disabled={saving}
-                startIcon={
-                  saving ? (
-                    <CircularProgress size={14} />
-                  ) : editing ? (
-                    <SaveIcon sx={{ fontSize: 14 }} />
-                  ) : null
-                }
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: "0.72rem",
-                  borderRadius: 2,
-                  ...(editing
-                    ? {
-                        borderColor: T.border,
-                        color: T.textMuted,
-                      }
-                    : {
-                        bgcolor: T.sky,
-                        boxShadow: "none",
-                        "&:hover": { bgcolor: "#0284c7" },
-                      }),
-                }}
-              >
-                {saving ? "Saving..." : editing ? "Save Docs" : "Edit Docs"}
-              </Button>
-            )}
-          </Stack>
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* 6. VERIFICATION DOCUMENTS                              */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ mb: 2 }}
+        >
+          <SectionHeader
+            icon={<InfoIcon sx={{ fontSize: 16 }} />}
+            title="Verification Documents"
+            subtitle="Click any image to preview"
+            accent={T.rose}
+          />
+          {request.status === "PENDING" && (
+            <Button
+              size="small"
+              variant={editing ? "outlined" : "contained"}
+              onClick={() => (editing ? handleSaveDocs() : setEditing(true))}
+              disabled={saving}
+              startIcon={
+                saving ? (
+                  <CircularProgress size={14} />
+                ) : editing ? (
+                  <SaveIcon sx={{ fontSize: 14 }} />
+                ) : null
+              }
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.72rem",
+                borderRadius: 2,
+                ...(editing
+                  ? { borderColor: T.border, color: T.textMuted }
+                  : {
+                      bgcolor: T.sky,
+                      boxShadow: "none",
+                      "&:hover": { bgcolor: "#0284c7" },
+                    }),
+              }}
+            >
+              {saving ? "Saving..." : editing ? "Save Docs" : "Edit Docs"}
+            </Button>
+          )}
+        </Stack>
 
-          {editing ? (
-            <Stack spacing={2.5}>
-              <ImageInput
-                label="Selfie (Live)"
-                value={selfieUrl}
-                onChange={setSelfieUrl}
-                folder="local-guider/role-requests"
-                aspect="square"
-              />
-              <ImageInput
-                label="Profile Photo"
-                value={profilePhotoUrl}
-                onChange={setProfilePhotoUrl}
-                folder="local-guider/role-requests"
-                aspect="square"
-              />
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                  gap: 2.5,
-                }}
-              >
-                <ImageInput
-                  label={`${ID_TYPE_LABELS[idType]} — Front`}
-                  value={idFrontUrl}
-                  onChange={setIdFrontUrl}
-                  folder="local-guider/role-requests"
-                  aspect="wide"
-                />
-                <ImageInput
-                  label={`${ID_TYPE_LABELS[idType]} — Back`}
-                  value={idBackUrl}
-                  onChange={setIdBackUrl}
-                  folder="local-guider/role-requests"
-                  aspect="wide"
-                />
-              </Box>
-            </Stack>
-          ) : (
+        {editing ? (
+          <Stack spacing={2.5}>
+            <ImageInput
+              label="Selfie (Live)"
+              value={selfieUrl}
+              onChange={setSelfieUrl}
+              folder="local-guider/role-requests"
+              aspect="square"
+            />
+            <ImageInput
+              label="Profile Photo"
+              value={profilePhotoUrl}
+              onChange={setProfilePhotoUrl}
+              folder="local-guider/role-requests"
+              aspect="square"
+            />
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
-                gap: 2,
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2.5,
               }}
             >
-              <DocThumb label="Selfie (Live)" url={request.selfieUrl} />
-              <DocThumb label="Profile Photo" url={request.profilePhotoUrl} />
-              <DocThumb label="ID Front" url={request.idFrontUrl} />
-              <DocThumb label="ID Back" url={request.idBackUrl} />
+              <ImageInput
+                label={`${ID_TYPE_LABELS[idType] || "ID"} — Front`}
+                value={idFrontUrl}
+                onChange={setIdFrontUrl}
+                folder="local-guider/role-requests"
+                aspect="wide"
+              />
+              <ImageInput
+                label={`${ID_TYPE_LABELS[idType] || "ID"} — Back`}
+                value={idBackUrl}
+                onChange={setIdBackUrl}
+                folder="local-guider/role-requests"
+                aspect="wide"
+              />
             </Box>
-          )}
-        </Box>
-
-        {/* ═══════ Message ═══════ */}
-        <Box>
-          <SectionHeader
-            title="Message"
-            subtitle="Applicant's note"
-            accent={T.violet}
-          />
-          <Paper
-            elevation={0}
+          </Stack>
+        ) : (
+          <Box
             sx={{
-              p: 2,
-              borderRadius: 2,
-              bgcolor: T.surfaceSoft,
-              border: `1px solid ${T.border}`,
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
+              gap: 2,
             }}
           >
-            <Typography
-              sx={{
-                fontSize: "0.82rem",
-                color: T.textPrimary,
-                lineHeight: 1.6,
-                fontWeight: 500,
-              }}
-            >
-              {request.message || "No message provided"}
-            </Typography>
-          </Paper>
-        </Box>
+            <DocThumb label="Selfie (Live)" url={request.selfieUrl} />
+            <DocThumb label="Profile Photo" url={request.profilePhotoUrl} />
+            <DocThumb label="ID Front" url={request.idFrontUrl} />
+            <DocThumb label="ID Back" url={request.idBackUrl} />
+          </Box>
+        )}
       </DialogContent>
+
       <DialogActions sx={{ p: 2, borderTop: `1px solid ${T.border}` }}>
         <Button
           onClick={onClose}
@@ -761,7 +936,6 @@ const RoleRequests = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // ✅ Fetch function — memoized
   const fetchList = useCallback(() => {
     dispatch(
       fetchRoleRequests({
@@ -771,24 +945,20 @@ const RoleRequests = () => {
     );
   }, [dispatch, pagination.page, pagination.limit]);
 
-  // ✅ Manual refresh with visual feedback
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
     fetchList();
     setTimeout(() => setIsRefreshing(false), 600);
   }, [fetchList]);
 
-  // Existing: initial fetch
   useEffect(() => {
     fetchList();
   }, [fetchList]);
 
-  // Existing: mark as seen
   useEffect(() => {
     localStorage.setItem("roleRequestsSeenAt", Date.now().toString());
   }, []);
 
-  // ✅ NEW: Auto-refresh every 30 seconds
   useAutoRefresh(fetchList, 30000);
 
   const filtered = (items || []).filter((item) => {
@@ -797,7 +967,8 @@ const RoleRequests = () => {
       item.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.idType?.toLowerCase().includes(searchTerm.toLowerCase());
+      item.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.whatsappNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !filterStatus || item.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -867,45 +1038,43 @@ const RoleRequests = () => {
       ),
     },
     {
+      field: "email",
+      headerName: "Email",
+      flex: 1.3,
+      minWidth: 180,
+      renderCell: (p) => (
+        <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }} noWrap>
+          {p.row.email || p.row.user?.email || "—"}
+        </Typography>
+      ),
+    },
+    {
+      field: "whatsappNumber",
+      headerName: "WhatsApp",
+      flex: 1,
+      minWidth: 130,
+      renderCell: (p) => (
+        <Typography
+          sx={{
+            fontSize: "0.75rem",
+            color: p.row.whatsappNumber ? "#25D366" : T.textFaint,
+            fontWeight: p.row.whatsappNumber ? 700 : 500,
+          }}
+          noWrap
+        >
+          {p.row.whatsappNumber || "—"}
+        </Typography>
+      ),
+    },
+    {
       field: "companyName",
       headerName: "Company",
       flex: 1,
-      minWidth: 140,
+      minWidth: 120,
       renderCell: (p) => (
-        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
-          {p.row.companyName || "N/A"}
+        <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }} noWrap>
+          {p.row.companyName || "—"}
         </Typography>
-      ),
-    },
-    {
-      field: "location",
-      headerName: "Location",
-      flex: 0.9,
-      minWidth: 110,
-      renderCell: (p) => (
-        <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
-          {p.row.location || "—"}
-        </Typography>
-      ),
-    },
-    {
-      field: "idType",
-      headerName: "ID Type",
-      flex: 0.9,
-      minWidth: 130,
-      renderCell: (p) => (
-        <Chip
-          label={ID_TYPE_LABELS[p.row.idType] || p.row.idType || "N/A"}
-          size="small"
-          sx={{
-            bgcolor: T.indigoSoft,
-            color: T.indigo,
-            fontWeight: 700,
-            fontSize: "0.65rem",
-            height: 22,
-            borderRadius: 999,
-          }}
-        />
       ),
     },
     {
@@ -1047,6 +1216,7 @@ const RoleRequests = () => {
         <PanelHeader eyebrow="Verification" title="Role Requests" />
       </Box>
 
+      {/* ═══ FILTERS ═══ */}
       <Paper
         elevation={0}
         sx={{
@@ -1065,7 +1235,7 @@ const RoleRequests = () => {
           <TextField
             fullWidth
             size="small"
-            placeholder="Search by name, company, location, ID type..."
+            placeholder="Search by name, company, email, whatsapp..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             slotProps={{
@@ -1140,6 +1310,7 @@ const RoleRequests = () => {
         </Stack>
       </Paper>
 
+      {/* ═══ TABLE ═══ */}
       <Paper
         elevation={0}
         sx={{
@@ -1203,13 +1374,14 @@ const RoleRequests = () => {
         )}
       </Paper>
 
+      {/* ═══ DETAILS MODAL ═══ */}
       <RequestDetailsModal
         request={selectedRequest}
         onClose={() => setSelectedRequest(null)}
         onUpdate={fetchList}
       />
 
-      {/* ═══════ Reject Dialog ═══════ */}
+      {/* ═══ REJECT DIALOG ═══ */}
       <Dialog
         open={rejectDialog.open}
         onClose={() =>
