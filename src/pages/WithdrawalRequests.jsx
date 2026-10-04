@@ -1,4 +1,8 @@
 // src/pages/WithdrawalRequests.jsx
+// ═══════════════════════════════════════════════════════════════
+// WITHDRAWAL REQUESTS — Admin panel with commission breakdown
+// Shows: Gross | Commission | Net
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from "react";
 import {
   Box,
@@ -34,6 +38,8 @@ import {
   Inbox,
   AccountBalance,
   Person,
+  Percent as PercentIcon,
+  TrendingDown,
 } from "@mui/icons-material";
 import {
   DataGrid,
@@ -79,6 +85,17 @@ const STATUS_STYLES = {
   APPROVED: { bg: T.emeraldSoft, color: "#047857", label: "Approved" },
   REJECTED: { bg: T.roseSoft, color: "#be123c", label: "Rejected" },
 };
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const safeNumber = (val) => {
+  if (val === null || val === undefined || val === "") return 0;
+  const n = parseFloat(val);
+  return isNaN(n) ? 0 : n;
+};
+
+const formatMoney = (val) => `₹${safeNumber(val).toFixed(2)}`;
 
 const CustomToolbar = () => (
   <GridToolbarContainer sx={{ p: 1 }}>
@@ -151,11 +168,10 @@ const InfoRow = ({ label, value }) => (
 );
 
 // ═══════════════════════════════════════════════════════════════
-// WITHDRAWAL REQUESTS
+// MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 const WithdrawalRequests = () => {
   const theme = useTheme();
-  // ✅ FIX A-1: useMediaQuery instead of window.innerWidth
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const [requests, setRequests] = useState([]);
@@ -235,6 +251,9 @@ const WithdrawalRequests = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  // TABLE COLUMNS
+  // ═══════════════════════════════════════════════════════════════
   const columns = [
     {
       field: "User",
@@ -284,23 +303,95 @@ const WithdrawalRequests = () => {
         );
       },
     },
+    // ✅ NEW: Gross amount
     {
       field: "amount",
-      headerName: "Amount",
+      headerName: "Gross",
       flex: 0.7,
       minWidth: 110,
       renderCell: (params) => (
         <Typography
           sx={{
-            fontWeight: 800,
-            color: "#047857",
+            fontWeight: 700,
+            color: T.textPrimary,
             fontFamily: "monospace",
             fontSize: "0.82rem",
           }}
         >
-          ₹{parseFloat(params.row.amount || 0).toFixed(2)}
+          {formatMoney(params.row.amount)}
         </Typography>
       ),
+    },
+    // ✅ NEW: Commission %
+    {
+      field: "commissionPercentage",
+      headerName: "Comm %",
+      flex: 0.5,
+      minWidth: 90,
+      renderCell: (params) => {
+        const pct = safeNumber(params.row.commissionPercentage);
+        return (
+          <Chip
+            label={`${pct}%`}
+            size="small"
+            sx={{
+              bgcolor: pct > 0 ? T.amberSoft : "#f1f5f9",
+              color: pct > 0 ? "#b45309" : T.textMuted,
+              fontWeight: 700,
+              fontSize: "0.65rem",
+              height: 22,
+              borderRadius: 999,
+            }}
+          />
+        );
+      },
+    },
+    // ✅ NEW: Commission amount
+    {
+      field: "commissionAmount",
+      headerName: "Comm ₹",
+      flex: 0.7,
+      minWidth: 110,
+      renderCell: (params) => {
+        const amt = safeNumber(params.row.commissionAmount);
+        return (
+          <Typography
+            sx={{
+              fontWeight: 700,
+              color: amt > 0 ? "#b45309" : T.textFaint,
+              fontFamily: "monospace",
+              fontSize: "0.8rem",
+            }}
+          >
+            {formatMoney(amt)}
+          </Typography>
+        );
+      },
+    },
+    // ✅ NEW: Net amount (highlighted — this is what user gets)
+    {
+      field: "netAmount",
+      headerName: "Net",
+      flex: 0.8,
+      minWidth: 120,
+      renderCell: (params) => {
+        const net = safeNumber(params.row.netAmount);
+        const gross = safeNumber(params.row.amount);
+        // Fallback: if net is 0 but amount exists, use gross
+        const display = net > 0 ? net : gross;
+        return (
+          <Typography
+            sx={{
+              fontWeight: 800,
+              color: "#047857",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+            }}
+          >
+            {formatMoney(display)}
+          </Typography>
+        );
+      },
     },
     {
       field: "bankName",
@@ -310,42 +401,6 @@ const WithdrawalRequests = () => {
       renderCell: (params) => (
         <Typography sx={{ fontSize: "0.78rem", color: T.textMuted }} noWrap>
           {params.row.bankName || "—"}
-        </Typography>
-      ),
-    },
-    {
-      field: "accountNumber",
-      headerName: "Account No",
-      flex: 1,
-      minWidth: 140,
-      renderCell: (params) => (
-        <Typography
-          sx={{
-            fontSize: "0.72rem",
-            color: T.textMuted,
-            fontFamily: "monospace",
-          }}
-          noWrap
-        >
-          {params.row.accountNumber || "—"}
-        </Typography>
-      ),
-    },
-    {
-      field: "ifscCode",
-      headerName: "IFSC",
-      flex: 0.7,
-      minWidth: 110,
-      renderCell: (params) => (
-        <Typography
-          sx={{
-            fontSize: "0.72rem",
-            color: T.textMuted,
-            fontFamily: "monospace",
-          }}
-          noWrap
-        >
-          {params.row.ifscCode || "—"}
         </Typography>
       ),
     },
@@ -376,8 +431,8 @@ const WithdrawalRequests = () => {
     {
       field: "createdAt",
       headerName: "Requested",
-      flex: 1,
-      minWidth: 140,
+      flex: 0.9,
+      minWidth: 130,
       renderCell: (params) => (
         <Typography sx={{ fontSize: "0.72rem", color: T.textMuted }}>
           {new Date(params.row.createdAt).toLocaleDateString("en-IN", {
@@ -460,201 +515,6 @@ const WithdrawalRequests = () => {
     },
   ];
 
-  const renderMobileCards = () => (
-    <Stack spacing={2}>
-      {filteredRequests.length > 0 ? (
-        filteredRequests.map((req) => {
-          const name = `${req.User?.firstName || ""} ${
-            req.User?.lastName || ""
-          }`.trim();
-          const style = STATUS_STYLES[req.status] || STATUS_STYLES.PENDING;
-          return (
-            <Paper
-              key={req.id}
-              elevation={0}
-              sx={{
-                borderRadius: T.radius,
-                border: `1px solid ${T.border}`,
-                bgcolor: T.surface,
-                p: 2,
-                "&:hover": {
-                  boxShadow: "0 12px 24px -16px rgba(15,23,42,0.15)",
-                  borderColor: T.borderStrong,
-                },
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={1.5}
-                alignItems="center"
-                sx={{ mb: 1.5 }}
-              >
-                <Avatar
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    border: "2px solid #fff",
-                  }}
-                >
-                  {(req.User?.firstName || "U").charAt(0)}
-                </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    sx={{
-                      fontSize: "0.88rem",
-                      fontWeight: 700,
-                      color: T.textPrimary,
-                    }}
-                    noWrap
-                  >
-                    {name || "Unknown"}
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: "0.72rem", color: T.textMuted, mt: 0.2 }}
-                    noWrap
-                  >
-                    {req.bankName || "Bank"}
-                  </Typography>
-                </Box>
-                <Chip
-                  label={style.label}
-                  size="small"
-                  sx={{
-                    bgcolor: style.bg,
-                    color: style.color,
-                    fontWeight: 700,
-                    fontSize: "0.62rem",
-                    height: 22,
-                    borderRadius: 999,
-                  }}
-                />
-              </Stack>
-
-              <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.6rem",
-                      color: T.textFaint,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    Amount
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "0.9rem",
-                      fontWeight: 800,
-                      color: "#047857",
-                      fontFamily: "monospace",
-                      mt: 0.2,
-                    }}
-                  >
-                    ₹{parseFloat(req.amount || 0).toFixed(2)}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.6rem",
-                      color: T.textFaint,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    Account
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      color: T.textPrimary,
-                      mt: 0.2,
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    ****{req.accountNumber?.slice(-4) || "—"}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <Stack
-                direction="row"
-                justifyContent="flex-end"
-                spacing={0.5}
-                sx={{ pt: 1.5, borderTop: `1px solid ${T.border}` }}
-              >
-                <IconButton
-                  size="small"
-                  onClick={() => setViewModal(req)}
-                  sx={{
-                    bgcolor: T.skySoft,
-                    color: T.sky,
-                    width: 30,
-                    height: 30,
-                  }}
-                >
-                  <Visibility sx={{ fontSize: 15 }} />
-                </IconButton>
-                {req.status === "PENDING" && (
-                  <>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleApprove(req.id)}
-                      disabled={processing === req.id}
-                      sx={{
-                        bgcolor: T.emeraldSoft,
-                        color: "#059669",
-                        width: 30,
-                        height: 30,
-                      }}
-                    >
-                      <Check sx={{ fontSize: 15 }} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => openRejectDialog(req.id)}
-                      disabled={processing === req.id}
-                      sx={{
-                        bgcolor: T.roseSoft,
-                        color: T.rose,
-                        width: 30,
-                        height: 30,
-                      }}
-                    >
-                      <Close sx={{ fontSize: 15 }} />
-                    </IconButton>
-                  </>
-                )}
-              </Stack>
-            </Paper>
-          );
-        })
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 4,
-            borderRadius: T.radius,
-            border: `1px dashed ${T.border}`,
-            textAlign: "center",
-          }}
-        >
-          <Inbox sx={{ fontSize: 40, color: T.textFaint, mb: 1 }} />
-          <Typography sx={{ color: T.textFaint, fontWeight: 500 }}>
-            No withdrawal requests found
-          </Typography>
-        </Paper>
-      )}
-    </Stack>
-  );
-
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: "auto" }}>
       <Box sx={{ mb: 3 }}>
@@ -736,76 +596,70 @@ const WithdrawalRequests = () => {
         </Stack>
       </Paper>
 
-      {/* Table / Mobile */}
-      {isMobile ? (
-        loading ? (
+      {/* Table */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1,
+          borderRadius: T.radius,
+          border: `1px solid ${T.border}`,
+          bgcolor: T.surface,
+          overflow: "hidden",
+        }}
+      >
+        {loading ? (
           <Loader />
         ) : (
-          renderMobileCards()
-        )
-      ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 1,
-            borderRadius: T.radius,
-            border: `1px solid ${T.border}`,
-            bgcolor: T.surface,
-            overflow: "hidden",
-          }}
-        >
-          {loading ? (
-            <Loader />
-          ) : (
-            <DataGrid
-              rows={filteredRequests}
-              columns={columns}
-              pageSize={10}
-              rowsPerPageOptions={[10, 25, 50]}
-              components={{ Toolbar: CustomToolbar }}
-              disableSelectionOnClick
-              autoHeight
-              rowHeight={64}
-              sx={{
-                border: "none",
-                "& .MuiDataGrid-columnHeaders": {
-                  bgcolor: T.surfaceSoft,
-                  fontWeight: 700,
-                  color: T.textMuted,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                  borderBottom: `1px solid ${T.border}`,
-                  minHeight: "48px !important",
-                },
-                "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
-                "& .MuiDataGrid-row": {
-                  borderBottom: `1px solid ${T.border}`,
-                  transition: "background-color 0.15s ease",
-                },
-                "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
-                "& .MuiDataGrid-cell": {
-                  borderBottom: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  py: 0,
-                },
-                "& .MuiDataGrid-cell:focus": { outline: "none" },
-                "& .MuiDataGrid-columnSeparator": { display: "none" },
-                "& .MuiDataGrid-footerContainer": {
-                  borderTop: `1px solid ${T.border}`,
-                },
-                "& .MuiDataGrid-toolbarContainer": {
-                  p: 1,
-                  borderBottom: `1px solid ${T.border}`,
-                },
-              }}
-            />
-          )}
-        </Paper>
-      )}
+          <DataGrid
+            rows={filteredRequests}
+            columns={columns}
+            pageSize={10}
+            rowsPerPageOptions={[10, 25, 50]}
+            components={{ Toolbar: CustomToolbar }}
+            disableSelectionOnClick
+            autoHeight
+            rowHeight={64}
+            sx={{
+              border: "none",
+              "& .MuiDataGrid-columnHeaders": {
+                bgcolor: T.surfaceSoft,
+                fontWeight: 700,
+                color: T.textMuted,
+                fontSize: "0.72rem",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                borderBottom: `1px solid ${T.border}`,
+                minHeight: "48px !important",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+              "& .MuiDataGrid-row": {
+                borderBottom: `1px solid ${T.border}`,
+                transition: "background-color 0.15s ease",
+              },
+              "& .MuiDataGrid-row:hover": { bgcolor: T.bgRowHover },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "none",
+                display: "flex",
+                alignItems: "center",
+                py: 0,
+              },
+              "& .MuiDataGrid-cell:focus": { outline: "none" },
+              "& .MuiDataGrid-columnSeparator": { display: "none" },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: `1px solid ${T.border}`,
+              },
+              "& .MuiDataGrid-toolbarContainer": {
+                p: 1,
+                borderBottom: `1px solid ${T.border}`,
+              },
+            }}
+          />
+        )}
+      </Paper>
 
-      {/* ═══════ View Details Modal ═══════ */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* VIEW DETAILS MODAL — with commission breakdown             */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <Dialog
         open={!!viewModal}
         onClose={() => setViewModal(null)}
@@ -857,10 +711,11 @@ const WithdrawalRequests = () => {
             />
           )}
         </DialogTitle>
+
         <DialogContent dividers sx={{ p: 3, borderColor: T.border }}>
           {viewModal && (
-            <Stack spacing={2}>
-              {/* User */}
+            <Stack spacing={2.5}>
+              {/* ═══ USER ═══ */}
               <Box>
                 <SectionHeader
                   icon={<Person sx={{ fontSize: 16 }} />}
@@ -869,10 +724,11 @@ const WithdrawalRequests = () => {
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Avatar
                     sx={{
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       background: `linear-gradient(135deg, ${T.indigo}, ${T.violet})`,
                       fontWeight: 700,
+                      fontSize: 16,
                     }}
                   >
                     {(viewModal.User?.firstName || "U").charAt(0)}
@@ -880,7 +736,7 @@ const WithdrawalRequests = () => {
                   <Box>
                     <Typography
                       sx={{
-                        fontSize: "0.85rem",
+                        fontSize: "0.88rem",
                         fontWeight: 700,
                         color: T.textPrimary,
                       }}
@@ -892,35 +748,197 @@ const WithdrawalRequests = () => {
                     >
                       {viewModal.User?.email}
                     </Typography>
+                    {viewModal.User?.phone && (
+                      <Typography
+                        sx={{ fontSize: "0.72rem", color: T.textMuted }}
+                      >
+                        {viewModal.User.phone}
+                      </Typography>
+                    )}
                   </Box>
                 </Stack>
               </Box>
 
               <Divider sx={{ borderColor: T.border }} />
 
-              {/* Amount */}
+              {/* ═══ COMMISSION BREAKDOWN ═══ */}
               <Box>
                 <SectionHeader
-                  icon={<AccountBalance sx={{ fontSize: 16 }} />}
-                  title="Amount"
+                  icon={<PercentIcon sx={{ fontSize: 16 }} />}
+                  title="Amount Breakdown"
                   accent={T.emerald}
                 />
-                <Typography
+
+                {/* Gross */}
+                <Paper
+                  elevation={0}
                   sx={{
-                    fontSize: "1.5rem",
-                    fontWeight: 800,
-                    color: "#047857",
-                    fontFamily: "monospace",
-                    letterSpacing: "-0.02em",
+                    p: 1.75,
+                    borderRadius: 2,
+                    bgcolor: T.surfaceSoft,
+                    border: `1px solid ${T.border}`,
+                    mb: 1,
                   }}
                 >
-                  ₹{parseFloat(viewModal.amount || 0).toFixed(2)}
-                </Typography>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: "0.62rem",
+                          fontWeight: 700,
+                          color: T.textFaint,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Gross Amount
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.7rem",
+                          color: T.textMuted,
+                          mt: 0.2,
+                        }}
+                      >
+                        Requested by user
+                      </Typography>
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontSize: "1.15rem",
+                        fontWeight: 800,
+                        color: T.textPrimary,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {formatMoney(viewModal.amount)}
+                    </Typography>
+                  </Stack>
+                </Paper>
+
+                {/* Commission */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1.75,
+                    borderRadius: 2,
+                    bgcolor: T.amberSoft,
+                    border: `1px solid ${T.amber}40`,
+                    mb: 1,
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                    >
+                      <TrendingDown
+                        sx={{ fontSize: 18, color: "#b45309" }}
+                      />
+                      <Box>
+                        <Typography
+                          sx={{
+                            fontSize: "0.62rem",
+                            fontWeight: 700,
+                            color: "#92400e",
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Commission (
+                          {safeNumber(viewModal.commissionPercentage)}%)
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: "0.7rem",
+                            color: "#b45309",
+                            mt: 0.2,
+                          }}
+                        >
+                          Deducted by platform
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Typography
+                      sx={{
+                        fontSize: "1.15rem",
+                        fontWeight: 800,
+                        color: "#b45309",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      −{formatMoney(viewModal.commissionAmount)}
+                    </Typography>
+                  </Stack>
+                </Paper>
+
+                {/* Net — Highlighted */}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: T.emeraldSoft,
+                    border: `1px solid ${T.emerald}40`,
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: "0.62rem",
+                          fontWeight: 700,
+                          color: "#065f46",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Net Payout
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.7rem",
+                          color: "#047857",
+                          mt: 0.2,
+                        }}
+                      >
+                        User will receive this amount
+                      </Typography>
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontSize: "1.4rem",
+                        fontWeight: 800,
+                        color: "#047857",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {formatMoney(
+                        safeNumber(viewModal.netAmount) > 0
+                          ? viewModal.netAmount
+                          : viewModal.amount
+                      )}
+                    </Typography>
+                  </Stack>
+                </Paper>
               </Box>
 
               <Divider sx={{ borderColor: T.border }} />
 
-              {/* Bank Details */}
+              {/* ═══ BANK DETAILS ═══ */}
               <Box>
                 <SectionHeader
                   icon={<AccountBalance sx={{ fontSize: 16 }} />}
@@ -949,9 +967,43 @@ const WithdrawalRequests = () => {
                   )}
                 </Box>
               </Box>
+
+              {/* ═══ ADMIN MESSAGE (if any) ═══ */}
+              {viewModal.adminMessage && (
+                <>
+                  <Divider sx={{ borderColor: T.border }} />
+                  <Box>
+                    <SectionHeader
+                      icon={<PercentIcon sx={{ fontSize: 16 }} />}
+                      title="Admin Message"
+                      accent={T.rose}
+                    />
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: T.surfaceSoft,
+                        border: `1px solid ${T.border}`,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "0.82rem",
+                          color: T.textPrimary,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {viewModal.adminMessage}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                </>
+              )}
             </Stack>
           )}
         </DialogContent>
+
         <DialogActions
           sx={{ p: 2, gap: 1, borderTop: `1px solid ${T.border}` }}
         >
@@ -1006,7 +1058,7 @@ const WithdrawalRequests = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ═══════ Reject Reason Dialog ═══════ */}
+      {/* ═══════════ REJECT DIALOG ═══════════ */}
       <Dialog
         open={rejectDialog.open}
         onClose={() =>
@@ -1047,8 +1099,8 @@ const WithdrawalRequests = () => {
           <Typography
             sx={{ fontSize: "0.82rem", color: T.textMuted, mb: 2 }}
           >
-            Please provide a reason for rejection. This will be shared with the
-            user.
+            Please provide a reason for rejection. The full amount (including
+            commission) will be refunded to the user's wallet.
           </Typography>
           <TextField
             fullWidth
