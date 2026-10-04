@@ -17,15 +17,15 @@ import {
   Person as PersonIcon,
   Mail as MailIcon,
   Phone as PhoneIcon,
-  LogoWhatsapp,
-  Calendar as CalendarIcon,
-  Transgender as GenderIcon,
-  Briefcase as BriefcaseIcon,
+  CalendarToday as CalendarIcon,
+  Wc as GenderIcon,
+  Work as BriefcaseIcon,
   Language as LanguageIcon,
   LocationOn as LocationIcon,
   Business as BusinessIcon,
   Info as InfoIcon,
 } from "@mui/icons-material";
+import { FaWhatsapp } from "react-icons/fa";
 import {
   Box,
   Paper,
@@ -91,6 +91,7 @@ const T = {
   amberSoft: "#fef3c7",
   sky: "#0ea5e9",
   skySoft: "#e0f2fe",
+  whatsapp: "#25D366",
   radius: 3,
   fontDisplay: '"Inter", system-ui, -apple-system, sans-serif',
 };
@@ -504,7 +505,11 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
           <UserAvatar row={request} size={64} />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
-              sx={{ fontSize: "1.05rem", fontWeight: 700, color: T.textPrimary }}
+              sx={{
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                color: T.textPrimary,
+              }}
             >
               {request.fullName || "N/A"}
             </Typography>
@@ -527,16 +532,12 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
                 }}
               />
               {request.companyName && (
-                <Typography
-                  sx={{ fontSize: "0.75rem", color: T.textMuted }}
-                >
+                <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }}>
                   • {request.companyName}
                 </Typography>
               )}
               {request.location && (
-                <Typography
-                  sx={{ fontSize: "0.75rem", color: T.textMuted }}
-                >
+                <Typography sx={{ fontSize: "0.75rem", color: T.textMuted }}>
                   • {request.location}
                 </Typography>
               )}
@@ -622,7 +623,9 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
               <InfoRow
                 icon={<InfoIcon sx={{ fontSize: 14 }} />}
                 label="ID Type"
-                value={ID_TYPE_LABELS[request.idType] || request.idType || "—"}
+                value={
+                  ID_TYPE_LABELS[request.idType] || request.idType || "—"
+                }
                 accent={T.sky}
               />
             </>
@@ -654,10 +657,10 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
             empty={!request.email && !request.user?.email}
           />
           <InfoRow
-            icon={<LogoWhatsapp sx={{ fontSize: 14 }} />}
+            icon={<FaWhatsapp style={{ fontSize: 14 }} />}
             label="WhatsApp Number"
             value={request.whatsappNumber}
-            accent="#25D366"
+            accent={T.whatsapp}
             empty={!request.whatsappNumber}
           />
           <InfoRow
@@ -667,7 +670,6 @@ const RequestDetailsModal = ({ request, onClose, onUpdate }) => {
             accent={T.amber}
             empty={!request.alternatePhone}
           />
-          {/* Account phone (from users table) */}
           <InfoRow
             icon={<PhoneIcon sx={{ fontSize: 14 }} />}
             label="Account Phone"
@@ -1030,7 +1032,11 @@ const RoleRequests = () => {
       minWidth: 140,
       renderCell: (p) => (
         <Typography
-          sx={{ fontSize: "0.82rem", fontWeight: 700, color: T.textPrimary }}
+          sx={{
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            color: T.textPrimary,
+          }}
           noWrap
         >
           {p.row.fullName || "—"}
@@ -1054,16 +1060,21 @@ const RoleRequests = () => {
       flex: 1,
       minWidth: 130,
       renderCell: (p) => (
-        <Typography
-          sx={{
-            fontSize: "0.75rem",
-            color: p.row.whatsappNumber ? "#25D366" : T.textFaint,
-            fontWeight: p.row.whatsappNumber ? 700 : 500,
-          }}
-          noWrap
-        >
-          {p.row.whatsappNumber || "—"}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          {p.row.whatsappNumber && (
+            <FaWhatsapp style={{ fontSize: 14, color: T.whatsapp }} />
+          )}
+          <Typography
+            sx={{
+              fontSize: "0.75rem",
+              color: p.row.whatsappNumber ? T.whatsapp : T.textFaint,
+              fontWeight: p.row.whatsappNumber ? 700 : 500,
+            }}
+            noWrap
+          >
+            {p.row.whatsappNumber || "—"}
+          </Typography>
+        </Stack>
       ),
     },
     {
